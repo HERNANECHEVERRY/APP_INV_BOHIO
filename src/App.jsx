@@ -337,6 +337,27 @@ export default function App() {
 
       console.log("📂 Sincronizando con Google Drive...");
 
+      // Sanitización para éxito en móviles y creación de PDF en carpeta 'general'
+      const sanitizeData = (obj) => {
+        const copy = JSON.parse(JSON.stringify(obj));
+        if (copy.imagenPropiedad) copy.imagenPropiedad = "SENT";
+        if (copy.contadores) {
+          Object.keys(copy.contadores).forEach(k => {
+            copy.contadores[k].imagenes = copy.contadores[k].imagenes.map(() => "SENT");
+          });
+        }
+        if (copy.espacios) {
+          copy.espacios.forEach(sp => {
+            sp.elementos.forEach(el => {
+              el.imagenes = el.imagenes.map(() => "SENT");
+            });
+          });
+        }
+        return copy;
+      };
+
+      const cleanData = sanitizeData(data);
+
       await fetch(import.meta.env.VITE_GOOGLE_SCRIPT_URL, {
         method: "POST",
         mode: "no-cors",
@@ -344,11 +365,11 @@ export default function App() {
         body: JSON.stringify({
           action: "save_data",
           propiedad: data.propiedad,
-          content: data
+          content: cleanData
         })
       });
 
-      alert('✅ ¡Guardado Exitoso!\n\n1. Supabase: Sincronizado\n2. Google Drive: Estructura de carpetas y fotos creadas con éxito.');
+      alert('✅ ¡Guardado Exitoso!\n\n1. Supabase: Sincronizado\n2. Google Drive: Estructura de carpetas lista.\n3. PDF: Generándose en la carpeta "general".\n4. Fotos Fachada: Guardadas en la raíz de la propiedad.');
       fetchProperties();
     } catch (error) {
       alert('Error al guardar: ' + error.message);
@@ -706,12 +727,12 @@ export default function App() {
                       <img src={data.imagenPropiedad} alt="Propiedad" />
                     ) : (
                       <div style={{ display: 'flex', gap: '1rem' }}>
-                        <button className="btn-outline" onClick={() => setCameraConfig({ onCapture: (url) => handleProcessImage(url, '.', (pUrl) => handleDataChange('imagenPropiedad', pUrl)) })}>
+                        <button className="btn-outline" onClick={() => setCameraConfig({ onCapture: (url) => handleProcessImage(url, '', (pUrl) => handleDataChange('imagenPropiedad', pUrl)) })}>
                           <Camera /> Usar Cámara
                         </button>
                         <label className="btn-outline" style={{ cursor: 'pointer' }}>
                           <ImageIcon /> Subir Archivo
-                          <input type="file" hidden accept="image/*" onChange={e => handleProcessImage(e.target.files[0], '.', (pUrl) => handleDataChange('imagenPropiedad', pUrl))} />
+                          <input type="file" hidden accept="image/*" onChange={e => handleProcessImage(e.target.files[0], '', (pUrl) => handleDataChange('imagenPropiedad', pUrl))} />
                         </label>
                       </div>
                     )}
