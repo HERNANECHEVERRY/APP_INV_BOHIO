@@ -734,17 +734,29 @@ export default function App() {
                 </div>
 
                 {activePropertyId && (
-                  <div style={{ marginTop: '2rem', padding: '1.5rem', background: '#fef2f2', borderRadius: '16px', border: '1px solid #fee2e2' }} className="no-print">
-                    <p style={{ color: '#991b1b', fontSize: '0.85rem', marginBottom: '1rem', fontWeight: 600 }}>Zona de Peligro</p>
+                  <div style={{ marginTop: '2.5rem', paddingTop: '1.5rem', borderTop: '1px solid #f1f5f9', textAlign: 'center' }} className="no-print">
                     <button
-                      className="btn-danger"
-                      style={{ width: '100%', background: '#dc2626', gap: '10px' }}
+                      className="btn-text-danger"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '10px',
+                        width: '100%',
+                        padding: '1rem',
+                        background: '#fff1f2',
+                        border: '1px solid #fecaca',
+                        color: '#e31e24',
+                        borderRadius: '12px',
+                        fontWeight: 700,
+                        fontSize: '0.9rem'
+                      }}
                       onClick={(e) => handleDeleteProperty(e, activePropertyId)}
                     >
-                      <Trash2 size={20} /> ELIMINAR ESTA PROPIEDAD
+                      <Trash2 size={18} /> ELIMINAR PROPIEDAD DEL SISTEMA
                     </button>
-                    <p style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.5rem', textAlign: 'center' }}>
-                      Esta acción eliminará los datos de la base de datos de forma permanente.
+                    <p style={{ color: '#94a3b8', fontSize: '0.75rem', marginTop: '0.8rem' }}>
+                      Al borrarla, la propiedad se removerá permanentemente de tu lista.
                     </p>
                   </div>
                 )}
