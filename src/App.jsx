@@ -1,0 +1,858 @@
+import React, { useState, useEffect } from 'react';
+import { Camera, Plus, Trash2, Printer, Home, FileText, Zap, Droplets, Flame, CheckCircle, Building, Mic, MicOff, User as UserIcon, X, Image as ImageIcon, LogIn, LogOut, UserPlus, Mail, Key, ChevronDown, ChevronUp } from 'lucide-react';
+import './App.css';
+import { supabase } from './supabase';
+
+const LOGO_URL = "https://i.postimg.cc/k47By9mJ/logo-bohio.jpg";
+
+const VoiceInput = ({ value, onChange, placeholder, type = 'text', rows = 4, className = '', min, style }) => {
+  const [isListening, setIsListening] = useState(false);
+  const [recognitionInstance, setRecognitionInstance] = useState(null);
+
+  const toggleListen = () => {
+    if (isListening && recognitionInstance) {
+      recognitionInstance.stop();
+      return;
+    }
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Tu navegador no soporta entrada por voz.");
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'es-CO';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.onstart = () => setIsListening(true);
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      const newValue = value ? `${value} ${transcript}` : transcript;
+      onChange(newValue);
+    };
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+    setRecognitionInstance(recognition);
+    recognition.start();
+  };
+
+  return (
+    <div className={`voice-input-container ${className} no-print`} style={style}>
+      {type === 'textarea' ? (
+        <textarea rows={rows} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
+      ) : (
+        <input type={type} min={min} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
+      )}
+      <button type="button" className={`mic-button ${isListening ? 'listening' : ''}`} onClick={toggleListen}>
+        {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+      </button>
+    </div>
+  );
+};
+
+const Auth = () => {
+  const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  const handleAuth = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+    } catch (error) {
+      alert("Error de acceso: " + (error.error_description || error.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="auth-container">
+      <div className="auth-card">
+        <h1 style={{ color: 'var(--primary)', marginBottom: '0.5rem', fontWeight: 800 }}>BOHÍO SISTEMAS</h1>
+        <p style={{ color: '#64748b', marginBottom: '2rem' }}>Acceso exclusivo para administradores</p>
+
+        <form onSubmit={handleAuth}>
+          <div className="form-group" style={{ marginBottom: '1rem' }}>
+            <label><Mail size={14} /> Correo Electrónico</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="tu-correo@empresa.com" />
+          </div>
+          <div className="form-group" style={{ marginBottom: '2rem' }}>
+            <label><Key size={14} /> Contraseña</label>
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="********" />
+          </div>
+          <button type="submit" className="btn-primary" style={{ width: '100%', height: '50px' }} disabled={loading}>
+            {loading ? 'Verificando...' : 'INGRESAR AL SISTEMA'}
+          </button>
+        </form>
+
+        <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '2rem' }}>
+          Sistema de Inventarios Protegido. <br />
+          Si no tienes acceso, contacta al administrador.
+        </p>
+      </div>
+    </div>
+  );
+};
+
+const CameraModal = ({ onCapture, onClose }) => {
+  const [stream, setStream] = useState(null);
+  const videoRef = React.useRef(null);
+  const canvasRef = React.useRef(null);
+
+  React.useEffect(() => {
+    async function startCamera() {
+      try {
+        const s = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" } },
+          audio: false
+        });
+        setStream(s);
+        if (videoRef.current) videoRef.current.srcObject = s;
+      } catch (err) {
+        alert("No se pudo acceder a la cámara: " + err.message);
+        onClose();
+      }
+    }
+    startCamera();
+    return () => {
+      if (stream) stream.getTracks().forEach(track => track.stop());
+    };
+  }, []);
+
+  const capture = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    const dataUrl = canvas.toDataURL('image/jpeg');
+    onCapture(dataUrl);
+    stop();
+  };
+
+  const stop = () => {
+    if (stream) stream.getTracks().forEach(track => track.stop());
+    onClose();
+  };
+
+  return (
+    <div className="camera-modal no-print">
+      <div className="camera-content">
+        <video ref={videoRef} autoPlay playsInline />
+        <canvas ref={canvasRef} style={{ display: 'none' }} />
+        <div className="camera-controls">
+          <button className="btn-primary" onClick={capture}><Camera /> Capturar</button>
+          <button className="btn-danger" onClick={stop}><X /> Cerrar</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default function App() {
+  const [session, setSession] = useState(null);
+  const [cameraConfig, setCameraConfig] = useState(null);
+  const [savedProperties, setSavedProperties] = useState([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [expandedMeter, setExpandedMeter] = useState('luz');
+  const [activeSpaceId, setActiveSpaceId] = useState(null);
+  const [activeElementId, setActiveElementId] = useState(null);
+  const [activePropertyId, setActivePropertyId] = useState(null);
+  const [expandedSections, setExpandedSections] = useState({ ficha: true, fachada: false, partes: false });
+
+  const toggleSection = (sec) => setExpandedSections(prev => ({ ...prev, [sec]: !prev[sec] }));
+  const toggleMeter = (tipo) => setExpandedMeter(expandedMeter === tipo ? null : tipo);
+  const toggleSpace = (id) => {
+    setActiveSpaceId(activeSpaceId === id ? null : id);
+    setActiveElementId(null); // Reset element when changing space
+  };
+  const toggleElement = (id) => setActiveElementId(activeElementId === id ? null : id);
+
+  const [data, setData] = useState({
+    contrato: '', propiedad: '', arrendador: '', arrendadorTel: '', arrendatario: '', arrendatarioTel: '',
+    direccion: '', fechaRecibo: '', fechaEntrega: '', aseguradora: '', tipoInmueble: '', telefonoGral: '',
+    imagenPropiedad: '',
+    contadores: {
+      luz: { contrato: '', contador: '', lectura: '', imagenes: [] },
+      agua: { contrato: '', contador: '', lectura: '', imagenes: [] },
+      gas: { contrato: '', contador: '', lectura: '', imagenes: [] },
+    },
+    espacios: []
+  });
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (session) fetchProperties();
+  }, [session]);
+
+  const fetchProperties = async () => {
+    const { data: props, error } = await supabase
+      .from('propiedades')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) console.error('Error fetching:', error);
+    else setSavedProperties(props);
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  const uploadImage = async (fileOrDataUrl, path) => {
+    let base64;
+    if (typeof fileOrDataUrl === 'string') {
+      base64 = fileOrDataUrl;
+    } else {
+      base64 = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.readAsDataURL(fileOrDataUrl);
+      });
+    }
+
+    const payload = {
+      propiedad: data.propiedad || "Sin_Nombre",
+      seccion: path,
+      filename: `foto_${Date.now()}.jpg`,
+      image: base64
+    };
+
+    console.log("🚀 Enviando a Google Drive...");
+
+    try {
+      await fetch(import.meta.env.VITE_GOOGLE_SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify(payload)
+      });
+    } catch (e) {
+      console.warn("Fallo en sincronización Drive secundaria (normal con no-cors):", e);
+    }
+
+    return base64;
+  };
+
+  const handleProcessImage = async (fileOrUrl, path, callback) => {
+    try {
+      const publicUrl = await uploadImage(fileOrUrl, path);
+      callback(publicUrl);
+    } catch (err) {
+      console.error(err);
+      alert("Error subiendo imagen: " + err.message);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!data.propiedad) return alert('Dale un nombre a la propiedad antes de guardar.');
+    setIsSaving(true);
+    try {
+      const payload = {
+        user_id: session.user.id,
+        nombre: data.propiedad,
+        direccion: data.direccion,
+        contrato: data.contrato,
+        tipo_inmueble: data.tipoInmueble,
+        telefono: data.telefonoGral,
+        aseguradora: data.aseguradora,
+        data: data
+      };
+
+      let error;
+      if (activePropertyId) {
+        const { error: err } = await supabase.from('propiedades').update(payload).eq('id', activePropertyId);
+        error = err;
+      } else {
+        const { data: newProp, error: err } = await supabase.from('propiedades').insert(payload).select();
+        error = err;
+        if (newProp) setActivePropertyId(newProp[0].id);
+      }
+
+      if (error) throw error;
+
+      console.log("📂 Sincronizando con Google Drive...");
+      await fetch(import.meta.env.VITE_GOOGLE_SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({
+          action: "save_data",
+          propiedad: data.propiedad,
+          content: data
+        })
+      });
+
+      alert('¡Propiedad guardada con éxito en Supabase y Sincronizada con Google Drive!');
+      fetchProperties();
+    } catch (error) {
+      alert('Error al guardar: ' + error.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const loadProperty = (prop) => {
+    setData(prop.data);
+    setActivePropertyId(prop.id);
+    setActiveSpaceId(null);
+    setExpandedMeter(null);
+  };
+
+  const createNew = () => {
+    setActivePropertyId(null);
+    setActiveSpaceId(null);
+    setExpandedMeter('luz');
+    setData({
+      contrato: '', propiedad: '', arrendador: '', arrendadorTel: '', arrendatario: '', arrendatarioTel: '',
+      direccion: '', fechaRecibo: '', fechaEntrega: '', aseguradora: '', tipoInmueble: '', telefonoGral: '',
+      imagenPropiedad: '',
+      contadores: {
+        luz: { contrato: '', contador: '', lectura: '', imagenes: [] },
+        agua: { contrato: '', contador: '', lectura: '', imagenes: [] },
+        gas: { contrato: '', contador: '', lectura: '', imagenes: [] },
+      },
+      espacios: []
+    });
+  };
+
+  const handleDataChange = (field, value) => setData(prev => ({ ...prev, [field]: value }));
+  const handleContadorChange = (tipo, field, value) => {
+    setData(prev => ({ ...prev, contadores: { ...prev.contadores, [tipo]: { ...prev.contadores[tipo], [field]: value } } }));
+  };
+
+  const addFotoContador = (tipo, fotoUrl) => {
+    setData(prev => ({
+      ...prev,
+      contadores: {
+        ...prev.contadores,
+        [tipo]: { ...prev.contadores[tipo], imagenes: [...prev.contadores[tipo].imagenes, fotoUrl] }
+      }
+    }));
+  };
+
+  const removeFotoContador = (tipo, index) => {
+    setData(prev => ({
+      ...prev,
+      contadores: {
+        ...prev.contadores,
+        [tipo]: {
+          ...prev.contadores[tipo],
+          imagenes: prev.contadores[tipo].imagenes.filter((_, i) => i !== index)
+        }
+      }
+    }));
+  };
+
+  const addEspacio = () => {
+    const newId = Date.now();
+    setData(prev => ({
+      ...prev,
+      espacios: [...prev.espacios, { id: newId, nombre: '', descripcion: '', elementos: [] }]
+    }));
+    setActiveSpaceId(newId);
+    setActiveElementId(null);
+  };
+
+  const updateEspacio = (id, field, value) => {
+    setData(prev => ({ ...prev, espacios: prev.espacios.map(e => e.id === id ? { ...e, [field]: value } : e) }));
+  };
+
+  const addElemento = (espacioId) => {
+    const newElId = Date.now();
+    setData(prev => ({
+      ...prev,
+      espacios: prev.espacios.map(e => e.id === espacioId ? {
+        ...e, elementos: [...e.elementos, { id: newElId, nombre: '', cantidad: 1, imagenes: [], estado: 'BUENO', descripcion: '' }]
+      } : e)
+    }));
+    setActiveElementId(newElId);
+  };
+
+  const updateElemento = (espacioId, elementoId, field, value) => {
+    setData(prev => ({
+      ...prev,
+      espacios: prev.espacios.map(e => e.id === espacioId ? {
+        ...e, elementos: e.elementos.map(el => el.id === elementoId ? { ...el, [field]: value } : el)
+      } : e)
+    }));
+  };
+
+  const addFotoElemento = (espacioId, elementoId, fotoUrl) => {
+    setData(prev => ({
+      ...prev,
+      espacios: prev.espacios.map(e => e.id === espacioId ? {
+        ...e, elementos: e.elementos.map(el => el.id === elementoId ? { ...el, imagenes: [...el.imagenes, fotoUrl] } : el)
+      } : e)
+    }));
+  };
+
+  const InventarioDocument = ({ type }) => (
+    <div className="pdf-page">
+      <div className="print-header">
+        <h1>INVENTARIO INMUEBLE</h1>
+        <p style={{ fontWeight: '700', fontSize: '11pt', letterSpacing: '2px', color: '#555' }}>
+          ACTA ORIGINAL: {type === 'ARRENDADOR' ? 'PROPIETARIO / ARRENDADOR' : 'ARRENDATARIO'}
+        </p>
+      </div>
+
+      <table className="print-table">
+        <tbody>
+          <tr>
+            <td colSpan="2" style={{ background: '#f9f9f9' }}><strong>INFORMACIÓN DE LA PROPIEDAD</strong></td>
+          </tr>
+          <tr>
+            <td style={{ width: '50%' }}><strong>PROPIEDAD:</strong> {data.propiedad}</td>
+            <td style={{ width: '50%' }}><strong>CONTRATO N°:</strong> {data.contrato}</td>
+          </tr>
+          <tr>
+            <td colSpan="2"><strong>DIRECCIÓN:</strong> {data.direccion}</td>
+          </tr>
+          <tr>
+            <td><strong>TIPO DE INMUEBLE:</strong> {data.tipoInmueble}</td>
+            <td><strong>TELÉFONO PROPIEDAD:</strong> {data.telefonoGral}</td>
+          </tr>
+          <tr>
+            <td><strong>FECHA RECIBO:</strong> {data.fechaRecibo}</td>
+            <td><strong>FECHA ENTREGA:</strong> {data.fechaEntrega}</td>
+          </tr>
+          <tr>
+            <td colSpan="2"><strong>ASEGURADORA:</strong> {data.aseguradora}</td>
+          </tr>
+          <tr>
+            <td colSpan="2" style={{ background: '#f9f9f9' }}>
+              <strong>DATOS DEL {type}</strong>
+            </td>
+          </tr>
+          <tr>
+            <td><strong>NOMBRE:</strong> {type === 'ARRENDADOR' ? data.arrendador : data.arrendatario}</td>
+            <td><strong>TELÉFONO DE CONTACTO:</strong> {type === 'ARRENDADOR' ? data.arrendadorTel : data.arrendatarioTel}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      {['luz', 'agua', 'gas'].map(tipo => (
+        <table key={tipo} className="print-table">
+          <thead>
+            <tr>
+              <th style={{ background: '#e31e24', color: 'white' }}>MEDIDOR {tipo.toUpperCase()}</th>
+              <th>N° CONTRATO</th>
+              <th>N° CONTADOR</th>
+              <th>ÚLTIMA LECTURA</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style={{ height: '35px', textAlign: 'center', fontSize: '8pt', color: '#999' }}>(Espacio para Notas)</td>
+              <td>{data.contadores[tipo].contrato}</td>
+              <td>{data.contadores[tipo].contador}</td>
+              <td>{data.contadores[tipo].lectura}</td>
+            </tr>
+          </tbody>
+        </table>
+      ))}
+
+      <div className="section-title">DETALLE DE ESPACIOS</div>
+      <table className="print-table">
+        <thead>
+          <tr>
+            <th style={{ width: '25%' }}>ZONA / ESPACIO</th>
+            <th style={{ width: '75%' }}>ESTADO GENERAL / DESCRIPCIÓN</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.espacios.length > 0 ? data.espacios.map(e => (
+            <tr key={e.id}>
+              <td style={{ fontWeight: '700' }}>{e.nombre || 'Sin nombre'}</td>
+              <td>{e.descripcion || 'Sin descripción'}</td>
+            </tr>
+          )) : (
+            <tr><td colSpan="2" style={{ textAlign: 'center', color: '#999' }}>No se registraron espacios</td></tr>
+          )}
+        </tbody>
+      </table>
+
+      <div className="section-title">INVENTARIO DETALLADO DE ELEMENTOS</div>
+      <table className="print-table">
+        <thead>
+          <tr>
+            <th>ESPACIO</th>
+            <th>ELEMENTO</th>
+            <th>#</th>
+            <th>ESTADO</th>
+            <th>DESCRIPCIONES ADICIONALES</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.espacios.flatMap(e => e.elementos.map(el => (
+            <tr key={el.id}>
+              <td>{e.nombre}</td>
+              <td>{el.nombre}</td>
+              <td style={{ textAlign: 'center' }}>{el.cantidad}</td>
+              <td style={{ fontWeight: '700' }}>{el.estado}</td>
+              <td>{el.descripcion}</td>
+            </tr>
+          )))}
+          {data.espacios.every(e => e.elementos.length === 0) && (
+            <tr><td colSpan="5" style={{ textAlign: 'center', color: '#999' }}>No se registraron elementos detallados</td></tr>
+          )}
+        </tbody>
+      </table>
+
+      <div style={{ marginTop: '2rem', fontSize: '8pt', color: '#444', border: '1px solid #ddd', padding: '10px' }}>
+        <p><strong>Nota 1:</strong> Registro fotográfico obligatorio solo para zonas en mal estado o por ausencia del propietario.</p>
+        <p><strong>Nota 2:</strong> Los arrendatarios se comprometen a conservar el inmueble en el mismo estado recibido, salvo deterioro natural por uso adecuado.</p>
+        <p style={{ marginTop: '0.5rem' }}>Acepto y firmo en conformidad el presente inventario que forma parte integral del contrato de arrendamiento.</p>
+      </div>
+
+      <div style={{ marginTop: '4rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3rem' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ borderBottom: '2px solid #000', marginBottom: '8px', minHeight: '40px' }}></div>
+          <p style={{ fontSize: '8.5pt', fontWeight: '700' }}>{data.arrendador.toUpperCase() || '____________________'}</p>
+          <p style={{ fontSize: '8pt' }}>FIRMA ARRENDADOR / REPRESENTANTE</p>
+          <p style={{ fontSize: '8pt' }}>C.C. ____________________</p>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ borderBottom: '2px solid #000', marginBottom: '8px', minHeight: '40px' }}></div>
+          <p style={{ fontSize: '8.5pt', fontWeight: '700' }}>{data.arrendatario.toUpperCase() || '____________________'}</p>
+          <p style={{ fontSize: '8pt' }}>FIRMA ARRENDATARIO / RECIBE</p>
+          <p style={{ fontSize: '8pt' }}>C.C. ____________________</p>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (!session) return <Auth />;
+
+  return (
+    <div className="main-layout">
+      {/* SIDEBAR DE PROPIEDADES */}
+      <aside className="sidebar no-print">
+        <div className="sidebar-header">
+          <Building size={20} />
+          <span style={{ flex: 1 }}>MIS PROPIEDADES</span>
+        </div>
+
+        {/* Info de Usuario y Cerrar Sesión */}
+        <div className="user-profile-sidebar">
+          <div className="user-info">
+            <UserIcon size={16} />
+            <span>{session.user.email}</span>
+          </div>
+          <button className="btn-logout-sidebar" onClick={handleLogout}>
+            <LogOut size={16} /> Cerrar Sesión
+          </button>
+        </div>
+
+        <button className="btn-new-prop" onClick={createNew}>+ NUEVA PROPIEDAD</button>
+        <div className="prop-list">
+          {savedProperties.map(p => (
+            <div key={p.id} className={`prop-item ${activePropertyId === p.id ? 'active' : ''}`} onClick={() => loadProperty(p)}>
+              <p className="prop-name">{p.nombre}</p>
+              <p className="prop-info">{p.direccion || 'Sin dirección'}</p>
+            </div>
+          ))}
+          {savedProperties.length === 0 && <p style={{ padding: '1rem', color: '#94a3b8', fontSize: '0.8rem' }}>No hay propiedades guardadas.</p>}
+        </div>
+
+        <div className="sidebar-footer">
+          <button className="btn-save-sidebar" onClick={handleSave} disabled={isSaving}>
+            <FileText size={20} /> {isSaving ? 'GUARDANDO...' : 'GUARDAR CAMBIOS'}
+          </button>
+          <button className="btn-print-sidebar" onClick={() => window.print()}>
+            <Printer size={20} /> IMPRIMIR ACTAS
+          </button>
+        </div>
+      </aside>
+
+      <div className="app-container">
+        <div className="no-print">
+          {/* Selector para Móviles */}
+          <div className="mobile-selector">
+            <select
+              value={activePropertyId || ""}
+              onChange={(e) => {
+                const prop = savedProperties.find(p => p.id === e.target.value);
+                if (prop) loadProperty(prop);
+                else createNew();
+              }}
+            >
+              <option value="">+ NUEVA PROPIEDAD</option>
+              {savedProperties.map(p => (
+                <option key={p.id} value={p.id}>{p.nombre}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="mobile-actions no-print">
+            <button className="btn-save" onClick={handleSave} disabled={isSaving}>
+              <FileText size={20} /> {isSaving ? 'GUARDAR' : 'GUARDAR'}
+            </button>
+            <button className="btn-primary" onClick={() => window.print()}>
+              <Printer size={20} /> IMPRIMIR
+            </button>
+          </div>
+
+          <header style={{ textAlign: 'center', marginBottom: '3rem', position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <div style={{ textAlign: 'center' }}>
+              <h1 style={{ color: 'var(--primary)', fontWeight: '800', letterSpacing: '-1px', margin: 0 }}>INVENTARIO DIGITAL BOHÍO <span style={{ fontSize: '0.8rem', verticalAlign: 'middle', background: '#e31e24', color: 'white', padding: '2px 8px', borderRadius: '4px' }}>V2</span></h1>
+              <p style={{ color: 'var(--text-muted)' }}>Capture y Gestión Profesional</p>
+            </div>
+          </header>
+
+          <div className={`card collapsible-card ${expandedSections.ficha ? 'expanded' : ''}`}>
+            <div className="collapsible-header" onClick={() => toggleSection('ficha')}>
+              <h2 className="card-title" style={{ border: 'none', marginBottom: 0, paddingBottom: 0 }}>
+                <Home size={28} /> FICHA DE LA PROPIEDAD
+                {!expandedSections.ficha && data.propiedad && <span className="header-summary">: {data.propiedad}</span>}
+              </h2>
+              {expandedSections.ficha ? <ChevronUp size={24} /> : <ChevronDown size={24} />}
+            </div>
+            {expandedSections.ficha && (
+              <div className="collapsible-content" style={{ marginTop: '1.5rem' }}>
+                <div className="grid-2">
+                  <div className="form-group"><label>Nombre Propiedad</label><VoiceInput value={data.propiedad} onChange={v => handleDataChange('propiedad', v)} /></div>
+                  <div className="form-group"><label>Contrato N°</label><VoiceInput value={data.contrato} onChange={v => handleDataChange('contrato', v)} /></div>
+                  <div className="form-group"><label>Dirección Física</label><VoiceInput value={data.direccion} onChange={v => handleDataChange('direccion', v)} /></div>
+                  <div className="form-group"><label>Tipo de Inmueble</label><VoiceInput value={data.tipoInmueble} onChange={v => handleDataChange('tipoInmueble', v)} /></div>
+                  <div className="form-group"><label>Teléfono Propiedad</label><VoiceInput value={data.telefonoGral} onChange={v => handleDataChange('telefonoGral', v)} /></div>
+                  <div className="form-group"><label>Aseguradora</label><VoiceInput value={data.aseguradora} onChange={v => handleDataChange('aseguradora', v)} /></div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className={`card collapsible-card ${expandedSections.fachada ? 'expanded' : ''}`}>
+            <div className="collapsible-header" onClick={() => toggleSection('fachada')}>
+              <h2 className="card-title" style={{ border: 'none', marginBottom: 0, paddingBottom: 0 }}>
+                <Camera size={28} /> REGISTRO FOTOGRÁFICO FACHADA
+                {!expandedSections.fachada && data.imagenPropiedad && <span className="header-summary"> (1 Foto)</span>}
+              </h2>
+              {expandedSections.fachada ? <ChevronUp size={24} /> : <ChevronDown size={24} />}
+            </div>
+            {expandedSections.fachada && (
+              <div className="collapsible-content" style={{ marginTop: '1.5rem' }}>
+                <div className="form-group">
+                  <div className={`image-upload-area ${data.imagenPropiedad ? 'has-image' : ''}`} style={{ minHeight: '200px', cursor: 'default' }}>
+                    {data.imagenPropiedad ? (
+                      <img src={data.imagenPropiedad} alt="Propiedad" />
+                    ) : (
+                      <div style={{ display: 'flex', gap: '1rem' }}>
+                        <button className="btn-outline" onClick={() => setCameraConfig({ onCapture: (url) => handleProcessImage(url, '.', (pUrl) => handleDataChange('imagenPropiedad', pUrl)) })}>
+                          <Camera /> Usar Cámara
+                        </button>
+                        <label className="btn-outline" style={{ cursor: 'pointer' }}>
+                          <ImageIcon /> Subir Archivo
+                          <input type="file" hidden accept="image/*" onChange={e => handleProcessImage(e.target.files[0], '.', (pUrl) => handleDataChange('imagenPropiedad', pUrl))} />
+                        </label>
+                      </div>
+                    )}
+                    {data.imagenPropiedad && (
+                      <button className="btn-danger no-print" style={{ position: 'absolute', top: '10px', right: '10px' }} onClick={() => handleDataChange('imagenPropiedad', '')}>
+                        Eliminar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className={`card collapsible-card ${expandedSections.partes ? 'expanded' : ''}`}>
+            <div className="collapsible-header" onClick={() => toggleSection('partes')}>
+              <h2 className="card-title" style={{ border: 'none', marginBottom: 0, paddingBottom: 0 }}>
+                <UserIcon size={28} /> PARTES INTERESADAS
+                {!expandedSections.partes && data.arrendatario && <span className="header-summary">: {data.arrendatario}</span>}
+              </h2>
+              {expandedSections.partes ? <ChevronUp size={24} /> : <ChevronDown size={24} />}
+            </div>
+            {expandedSections.partes && (
+              <div className="collapsible-content" style={{ marginTop: '1.5rem' }}>
+                <div className="grid-2">
+                  <div style={{ border: '1px solid #e2e8f0', padding: '1rem', borderRadius: '12px' }}>
+                    <h3 style={{ color: 'var(--primary)', marginBottom: '1rem', fontSize: '0.9rem' }}>ARRENDADOR</h3>
+                    <div className="form-group" style={{ marginBottom: '1rem' }}><label>Nombre</label><VoiceInput value={data.arrendador} onChange={v => handleDataChange('arrendador', v)} /></div>
+                    <div className="form-group"><label>Teléfono</label><VoiceInput value={data.arrendadorTel} onChange={v => handleDataChange('arrendadorTel', v)} /></div>
+                  </div>
+                  <div style={{ border: '1px solid #e2e8f0', padding: '1rem', borderRadius: '12px' }}>
+                    <h3 style={{ color: '#444', marginBottom: '1rem', fontSize: '0.9rem' }}>ARRENDATARIO</h3>
+                    <div className="form-group" style={{ marginBottom: '1rem' }}><label>Nombre</label><VoiceInput value={data.arrendatario} onChange={v => handleDataChange('arrendatario', v)} /></div>
+                    <div className="form-group"><label>Teléfono</label><VoiceInput value={data.arrendatarioTel} onChange={v => handleDataChange('arrendatarioTel', v)} /></div>
+                  </div>
+                </div>
+                <div className="grid-2" style={{ marginTop: '1rem' }}>
+                  <div className="form-group"><label>Fecha Recibo</label><VoiceInput type="date" value={data.fechaRecibo} onChange={v => handleDataChange('fechaRecibo', v)} /></div>
+                  <div className="form-group"><label>Fecha Entrega</label><VoiceInput type="date" value={data.fechaEntrega} onChange={v => handleDataChange('fechaEntrega', v)} /></div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="card">
+            <h2 className="card-title"><FileText size={28} /> ESTADO DE MEDIDORES</h2>
+            <div className="grid-2">
+              {['luz', 'agua', 'gas'].map(t => (
+                <div key={t} className={`collapsible-card ${expandedMeter === t ? 'expanded' : ''}`}>
+                  <div className="collapsible-header" onClick={() => toggleMeter(t)}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                      <h4 style={{ textTransform: 'uppercase', color: 'var(--primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
+                        {t === 'luz' ? <Zap size={18} /> : t === 'agua' ? <Droplets size={18} /> : <Flame size={18} />} {t}
+                      </h4>
+                      {expandedMeter !== t && data.contadores[t].lectura && (
+                        <span className="header-summary" style={{ fontSize: '0.8rem' }}>• {data.contadores[t].lectura} kw/m3</span>
+                      )}
+                    </div>
+                    {expandedMeter === t ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                  </div>
+
+                  {expandedMeter === t && (
+                    <div className="collapsible-content">
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <VoiceInput placeholder="N° Contrato" value={data.contadores[t].contrato} onChange={v => handleContadorChange(t, 'contrato', v)} />
+                        <VoiceInput placeholder="N° Medidor/Serie" value={data.contadores[t].contador} onChange={v => handleContadorChange(t, 'contador', v)} />
+                        <VoiceInput placeholder="Lectura Actual" value={data.contadores[t].lectura} onChange={v => handleContadorChange(t, 'lectura', v)} />
+
+                        <div className="image-gallery" style={{ marginTop: '0.5rem' }}>
+                          {data.contadores[t].imagenes.map((img, idx) => (
+                            <div key={idx} className="gallery-item">
+                              <img src={img} alt={`${t} ${idx}`} />
+                              <button className="remove-img-btn no-print" onClick={() => removeFotoContador(t, idx)}><X size={14} /></button>
+                            </div>
+                          ))}
+                          <div style={{ display: 'flex', gap: '10px' }}>
+                            <button className="add-photo-btn" onClick={() => setCameraConfig({ onCapture: (url) => handleProcessImage(url, 'SERVICIOS PUBLICOS', (pUrl) => addFotoContador(t, pUrl)) })}>
+                              <Camera size={20} />
+                            </button>
+                            <label className="add-photo-btn" style={{ cursor: 'pointer' }}>
+                              <ImageIcon size={20} />
+                              <input type="file" hidden accept="image/*" onChange={evt => handleProcessImage(evt.target.files[0], 'SERVICIOS PUBLICOS', (pUrl) => addFotoContador(t, pUrl))} />
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+              <h2 className="card-title" style={{ margin: 0, padding: 0, border: 'none' }}><Building size={28} /> INVENTARIO FÍSICO</h2>
+              <button className="btn-primary" onClick={addEspacio}>+ AGREGAR ZONA / ESPACIO</button>
+            </div>
+            {data.espacios.map((e, idx) => (
+              <div key={e.id} className={`space-card ${activeSpaceId === e.id ? 'expanded' : ''}`} style={{ marginBottom: '1.5rem' }}>
+                <div className="collapsible-header space-header-main" onClick={() => toggleSpace(e.id)}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
+                    <div className="space-badge">{idx + 1}</div>
+                    <span style={{ fontWeight: 800, color: '#1e293b' }}>{e.nombre || 'NUEVA ZONA'}</span>
+                    {activeSpaceId !== e.id && e.elementos.length > 0 && <span className="header-summary" style={{ color: '#64748b' }}> ({e.elementos.length} ítems)</span>}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <button className="btn-icon-danger no-print" onClick={(e_stop) => { e_stop.stopPropagation(); setData(prev => ({ ...prev, espacios: prev.espacios.filter(sp => sp.id !== e.id) })); }}><Trash2 size={18} /></button>
+                    {activeSpaceId === e.id ? <ChevronUp size={24} /> : <ChevronDown size={24} />}
+                  </div>
+                </div>
+
+                {activeSpaceId === e.id && (
+                  <div className="collapsible-content" style={{ padding: '1.5rem' }}>
+                    <div style={{ marginBottom: '1.5rem' }}>
+                      <label style={{ fontWeight: 700, fontSize: '0.75rem', color: 'var(--primary)', textTransform: 'uppercase', display: 'block', marginBottom: '0.5rem' }}>Editar Nombre de Zona</label>
+                      <VoiceInput placeholder="Ej: Sala Comedor, Baño Social..." value={e.nombre} onChange={v => updateEspacio(e.id, 'nombre', v)} />
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: '2rem' }}>
+                      <label>Descripción General de la Zona</label>
+                      <VoiceInput type="textarea" placeholder="Estado de paredes, techos, pisos..." value={e.descripcion} onChange={v => updateEspacio(e.id, 'descripcion', v)} />
+                    </div>
+
+                    <div className="elements-section">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #edf2f7', paddingBottom: '0.5rem' }}>
+                        <h4 style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 800 }}>ELEMENTOS INDIVIDUALES</h4>
+                        <button className="btn-outline" style={{ fontSize: '0.75rem', padding: '0.4rem 0.8rem' }} onClick={() => addElemento(e.id)}>+ Añadir Ítem</button>
+                      </div>
+
+                      {e.elementos.map(el => (
+                        <div key={el.id} className={`element-card-v2 ${activeElementId === el.id ? 'active' : ''}`}>
+                          <div className="element-header-mini" onClick={() => toggleElement(el.id)}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
+                              <CheckCircle size={14} color={el.nombre ? 'var(--primary)' : '#cbd5e1'} />
+                              <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1e293b' }}>{el.nombre || 'NUEVO ÍTEM'}</span>
+                              {activeElementId !== el.id && <span className="header-summary" style={{ fontSize: '0.75rem' }}>• {el.estado}</span>}
+                            </div>
+                            {activeElementId === el.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                          </div>
+
+                          {activeElementId === el.id && (
+                            <div className="element-body-expanded" style={{ marginTop: '1rem' }}>
+                              <div className="grid-2" style={{ gap: '1rem' }}>
+                                <div className="form-group">
+                                  <label style={{ fontSize: '0.7rem' }}>Nombre del Elemento</label>
+                                  <VoiceInput placeholder="Ej: Cerradura Principal" value={el.nombre} onChange={v => updateElemento(e.id, el.id, 'nombre', v)} />
+                                </div>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                  <div className="form-group" style={{ flex: 2 }}>
+                                    <label style={{ fontSize: '0.7rem' }}>Estado</label>
+                                    <select value={el.estado} onChange={evt => updateElemento(e.id, el.id, 'estado', evt.target.value)}>
+                                      <option>EXCELENTE</option><option>BUENO</option><option>REGULAR</option><option>MALO</option>
+                                    </select>
+                                  </div>
+                                  <div className="form-group" style={{ flex: 1 }}>
+                                    <label style={{ fontSize: '0.7rem' }}>Cant.</label>
+                                    <VoiceInput type="number" min="1" value={el.cantidad} onChange={v => updateElemento(e.id, el.id, 'cantidad', v)} />
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="image-gallery" style={{ marginTop: '1rem' }}>
+                                {el.imagenes.map((img, iidx) => <div key={iidx} className="gallery-item"><img src={img} alt="Detalle" /></div>)}
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                  <button className="add-photo-btn" onClick={() => setCameraConfig({ onCapture: (url) => handleProcessImage(url, e.nombre || 'Zona_Sin_Nombre', (pUrl) => addFotoElemento(e.id, el.id, pUrl)) })}>
+                                    <Camera size={20} />
+                                  </button>
+                                  <label className="add-photo-btn" style={{ cursor: 'pointer' }}>
+                                    <ImageIcon size={20} />
+                                    <input type="file" hidden accept="image/*" onChange={evt => handleProcessImage(evt.target.files[0], e.nombre || 'Zona_Sin_Nombre', (pUrl) => addFotoElemento(e.id, el.id, pUrl))} />
+                                  </label>
+                                </div>
+                              </div>
+                              <button className="btn-text-danger" style={{ marginTop: '1rem', fontSize: '0.7rem' }} onClick={() => setData(prev => ({ ...prev, espacios: prev.espacios.map(sp => sp.id === e.id ? { ...sp, elementos: sp.elementos.filter(item => item.id !== el.id) } : sp) }))}>Eliminar Ítem</button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="print-only">
+          <InventarioDocument type="ARRENDADOR" />
+          <div className="page-break"></div>
+          <InventarioDocument type="ARRENDATARIO" />
+        </div>
+
+        {cameraConfig && (
+          <CameraModal
+            onCapture={cameraConfig.onCapture}
+            onClose={() => setCameraConfig(null)}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
