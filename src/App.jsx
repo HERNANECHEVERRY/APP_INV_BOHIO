@@ -250,7 +250,7 @@ export default function App() {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.4));
+        resolve(canvas.toDataURL('image/jpeg', 0.5));
       };
     });
   };
@@ -369,7 +369,7 @@ export default function App() {
         })
       });
 
-      alert('✅ ¡Guardado Exitoso!\n\n1. Supabase: Sincronizado\n2. Google Drive: Estructura de carpetas lista.\n3. PDF: Generándose en la carpeta "general".\n4. Fotos Fachada: Guardadas en la raíz de la propiedad.');
+      alert('✅ ¡Guardado Exitoso!\n\n1. Supabase: Sincronizado\n2. Google Drive: Estructura de carpetas lista.\n3. PDF: Generándose en la carpeta "general".');
       fetchProperties();
     } catch (error) {
       alert('Error al guardar: ' + error.message);
@@ -727,12 +727,12 @@ export default function App() {
                       <img src={data.imagenPropiedad} alt="Propiedad" />
                     ) : (
                       <div style={{ display: 'flex', gap: '1rem' }}>
-                        <button className="btn-outline" onClick={() => setCameraConfig({ onCapture: (url) => handleProcessImage(url, '', (pUrl) => handleDataChange('imagenPropiedad', pUrl)) })}>
+                        <button className="btn-outline" onClick={() => setCameraConfig({ onCapture: (url) => handleProcessImage(url, 'FACHADA', (pUrl) => handleDataChange('imagenPropiedad', pUrl)) })}>
                           <Camera /> Usar Cámara
                         </button>
                         <label className="btn-outline" style={{ cursor: 'pointer' }}>
                           <ImageIcon /> Subir Archivo
-                          <input type="file" hidden accept="image/*" onChange={e => handleProcessImage(e.target.files[0], '', (pUrl) => handleDataChange('imagenPropiedad', pUrl))} />
+                          <input type="file" hidden accept="image/*" onChange={e => handleProcessImage(e.target.files[0], 'FACHADA', (pUrl) => handleDataChange('imagenPropiedad', pUrl))} />
                         </label>
                       </div>
                     )}
