@@ -70,27 +70,52 @@ const Auth = () => {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h1 style={{ color: 'var(--primary)', marginBottom: '0.5rem', fontWeight: 800 }}>BOHÍO SISTEMAS</h1>
-        <p style={{ color: '#64748b', marginBottom: '2rem' }}>Acceso exclusivo para administradores</p>
+        <div style={{ marginBottom: '2rem' }}>
+          <div style={{ background: '#fee2e2', width: '64px', height: '64px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+            <Building size={32} color="var(--primary)" />
+          </div>
+          <h1 style={{ color: '#1e293b', fontSize: '1.75rem', fontWeight: 800, margin: 0 }}>Bienvenido</h1>
+          <p style={{ color: '#64748b', marginTop: '0.5rem', fontSize: '0.95rem' }}>Ingresa tus credenciales para continuar</p>
+        </div>
 
-        <form onSubmit={handleAuth}>
-          <div className="form-group" style={{ marginBottom: '1rem' }}>
-            <label><Mail size={14} /> Correo Electrónico</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="tu-correo@empresa.com" />
+        <form onSubmit={handleAuth} style={{ textAlign: 'left' }}>
+          <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#475569', fontWeight: 600, fontSize: '0.85rem', marginBottom: '0.5rem' }}>
+              <Mail size={16} /> Correo Electrónico
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+              placeholder="admin@bohio.com"
+              style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}
+            />
           </div>
           <div className="form-group" style={{ marginBottom: '2rem' }}>
-            <label><Key size={14} /> Contraseña</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="********" />
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#475569', fontWeight: 600, fontSize: '0.85rem', marginBottom: '0.5rem' }}>
+              <Key size={16} /> Contraseña
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              placeholder="••••••••"
+              style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}
+            />
           </div>
-          <button type="submit" className="btn-primary" style={{ width: '100%', height: '50px' }} disabled={loading}>
-            {loading ? 'Verificando...' : 'INGRESAR AL SISTEMA'}
+          <button type="submit" className="btn-primary" style={{ width: '100%', height: '54px', borderRadius: '12px', fontSize: '1rem' }} disabled={loading}>
+            {loading ? 'Verificando...' : 'INICIAR SESIÓN'}
           </button>
         </form>
 
-        <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '2rem' }}>
-          Sistema de Inventarios Protegido. <br />
-          Si no tienes acceso, contacta al administrador.
-        </p>
+        <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid #f1f5f9' }}>
+          <p style={{ fontSize: '0.8rem', color: '#94a3b8', lineHeight: '1.5' }}>
+            Acceso restringido. <br />
+            Inventario Digital Bohío © 2026
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -608,6 +633,9 @@ export default function App() {
       <div className="app-container">
         <div className="no-print">
           <header style={{ textAlign: 'center', marginBottom: '2rem', position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <button className="btn-logout-mobile no-print" onClick={handleLogout} title="Cerrar Sesión">
+              <LogOut size={20} />
+            </button>
             <div style={{ textAlign: 'center' }}>
               <h1 style={{ color: 'var(--primary)', fontWeight: '800', letterSpacing: '-1px', margin: 0 }}>INVENTARIO DIGITAL BOHÍO <span style={{ fontSize: '0.8rem', verticalAlign: 'middle', background: '#e31e24', color: 'white', padding: '2px 8px', borderRadius: '4px' }}>V2</span></h1>
               <p style={{ color: 'var(--text-muted)' }}>Capture y Gestión Profesional</p>
