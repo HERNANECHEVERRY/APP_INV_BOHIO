@@ -385,6 +385,22 @@ export default function App() {
     setExpandedMeter(null);
   };
 
+  const handleDeleteProperty = async (e, id) => {
+    e.stopPropagation();
+    if (!window.confirm("¿Estás seguro de que quieres eliminar esta propiedad? Esta acción no se puede deshacer en la base de datos.")) return;
+
+    try {
+      const { error } = await supabase.from('propiedades').delete().eq('id', id);
+      if (error) throw error;
+
+      if (activePropertyId === id) createNew();
+      fetchProperties();
+      alert("Propiedad eliminada con éxito de la base de datos.");
+    } catch (error) {
+      alert("Error al eliminar: " + error.message);
+    }
+  };
+
   const createNew = () => {
     setActivePropertyId(null);
     setActiveSpaceId(null);
@@ -633,9 +649,18 @@ export default function App() {
         <button className="btn-new-prop" onClick={createNew}>+ NUEVA PROPIEDAD</button>
         <div className="prop-list">
           {savedProperties.map(p => (
-            <div key={p.id} className={`prop-item ${activePropertyId === p.id ? 'active' : ''}`} onClick={() => loadProperty(p)}>
-              <p className="prop-name">{p.nombre}</p>
-              <p className="prop-info">{p.direccion || 'Sin dirección'}</p>
+            <div key={p.id} className={`prop-item ${activePropertyId === p.id ? 'active' : ''}`} onClick={() => loadProperty(p)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p className="prop-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nombre}</p>
+                <p className="prop-info" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.direccion || 'Sin dirección'}</p>
+              </div>
+              <button
+                className="btn-delete-prop"
+                onClick={(e) => handleDeleteProperty(e, p.id)}
+                title="Eliminar Propiedad"
+              >
+                <Trash2 size={14} />
+              </button>
             </div>
           ))}
           {savedProperties.length === 0 && <p style={{ padding: '1rem', color: '#94a3b8', fontSize: '0.8rem' }}>No hay propiedades guardadas.</p>}
