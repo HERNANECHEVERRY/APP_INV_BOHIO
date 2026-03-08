@@ -209,7 +209,7 @@ export default function App() {
     await supabase.auth.signOut();
   };
 
-  const compressImage = async (base64Str, maxWidth = 800) => {
+  const compressImage = async (base64Str, maxWidth = 600) => {
     return new Promise((resolve) => {
       const img = new Image();
       img.src = base64Str;
@@ -225,7 +225,7 @@ export default function App() {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.5));
+        resolve(canvas.toDataURL('image/jpeg', 0.4));
       };
     });
   };
@@ -279,6 +279,11 @@ export default function App() {
   };
 
   const handleSave = async () => {
+    const scriptUrl = import.meta.env.VITE_GOOGLE_SCRIPT_URL;
+    if (!scriptUrl || scriptUrl === 'undefined') {
+      return alert('⚠️ ERROR DE CONFIGURACIÓN:\nNo se detectó la URL de Google Script en Vercel.\n\nPor favor, ve al panel de Vercel > Settings > Environment Variables y añade VITE_GOOGLE_SCRIPT_URL.');
+    }
+
     if (!data.propiedad) return alert('Dale un nombre a la propiedad antes de guardar.');
     setIsSaving(true);
     try {
