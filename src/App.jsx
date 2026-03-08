@@ -732,6 +732,22 @@ export default function App() {
                   <div className="form-group"><label>Teléfono Propiedad</label><VoiceInput value={data.telefonoGral} onChange={v => handleDataChange('telefonoGral', v)} /></div>
                   <div className="form-group"><label>Aseguradora</label><VoiceInput value={data.aseguradora} onChange={v => handleDataChange('aseguradora', v)} /></div>
                 </div>
+
+                {activePropertyId && (
+                  <div style={{ marginTop: '2rem', padding: '1.5rem', background: '#fef2f2', borderRadius: '16px', border: '1px solid #fee2e2' }} className="no-print">
+                    <p style={{ color: '#991b1b', fontSize: '0.85rem', marginBottom: '1rem', fontWeight: 600 }}>Zona de Peligro</p>
+                    <button
+                      className="btn-danger"
+                      style={{ width: '100%', background: '#dc2626', gap: '10px' }}
+                      onClick={(e) => handleDeleteProperty(e, activePropertyId)}
+                    >
+                      <Trash2 size={20} /> ELIMINAR ESTA PROPIEDAD
+                    </button>
+                    <p style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.5rem', textAlign: 'center' }}>
+                      Esta acción eliminará los datos de la base de datos de forma permanente.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
