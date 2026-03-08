@@ -597,15 +597,18 @@
 .mobile-actions {
   display: none;
   grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+  gap: 0.75rem;
   margin-bottom: 2rem;
+  padding: 0 0.5rem;
 }
 
 .mobile-actions .btn-save,
 .mobile-actions .btn-primary {
-  height: 50px;
+  height: 54px;
   padding: 0;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  justify-content: center;
+  border-radius: 14px;
 }
 
 @media (max-width: 1024px) {
@@ -831,6 +834,7 @@
 .btn-text-danger:hover {
   text-decoration: underline;
 }
+
 .header-summary {
   font-size: 0.9rem;
   font-weight: 500;
@@ -853,11 +857,14 @@
   @page {
     margin: 5mm 0mm;
   }
+
   body {
     margin: 0px !important;
     padding: 0px !important;
   }
-  header, footer {
+
+  header,
+  footer {
     display: none !important;
   }
 }

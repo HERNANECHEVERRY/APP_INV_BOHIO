@@ -209,6 +209,27 @@ export default function App() {
     await supabase.auth.signOut();
   };
 
+  const compressImage = async (base64Str, maxWidth = 1200) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth) {
+          height = (maxWidth / width) * height;
+          width = maxWidth;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+    });
+  };
+
   const uploadImage = async (fileOrDataUrl, path) => {
     let base64;
     if (typeof fileOrDataUrl === 'string') {
@@ -221,11 +242,14 @@ export default function App() {
       });
     }
 
+    // Comprimir antes de enviar si es necesario
+    const compressedBase64 = await compressImage(base64);
+
     const payload = {
       propiedad: data.propiedad || "Sin_Nombre",
       seccion: path,
       filename: `foto_${Date.now()}.jpg`,
-      image: base64
+      image: compressedBase64
     };
 
     console.log("🚀 Enviando a Google Drive...");
@@ -238,10 +262,10 @@ export default function App() {
         body: JSON.stringify(payload)
       });
     } catch (e) {
-      console.warn("Fallo en sincronización Drive secundaria (normal con no-cors):", e);
+      console.warn("Fallo sincronización individual:", e);
     }
 
-    return base64;
+    return compressedBase64;
   };
 
   const handleProcessImage = async (fileOrUrl, path, callback) => {
@@ -293,7 +317,7 @@ export default function App() {
         })
       });
 
-      alert('¡Propiedad guardada con éxito en Supabase y Sincronizada con Google Drive!');
+      alert('✅ ¡Guardado Exitoso!\n\n1. Supabase: Sincronizado\n2. Google Drive: En Proceso (Las carpetas y fotos se crean en segundo plano).');
       fetchProperties();
     } catch (error) {
       alert('Error al guardar: ' + error.message);
@@ -577,6 +601,13 @@ export default function App() {
 
       <div className="app-container">
         <div className="no-print">
+          <header style={{ textAlign: 'center', marginBottom: '2rem', position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <div style={{ textAlign: 'center' }}>
+              <h1 style={{ color: 'var(--primary)', fontWeight: '800', letterSpacing: '-1px', margin: 0 }}>INVENTARIO DIGITAL BOHÍO <span style={{ fontSize: '0.8rem', verticalAlign: 'middle', background: '#e31e24', color: 'white', padding: '2px 8px', borderRadius: '4px' }}>V2</span></h1>
+              <p style={{ color: 'var(--text-muted)' }}>Capture y Gestión Profesional</p>
+            </div>
+          </header>
+
           {/* Selector para Móviles */}
           <div className="mobile-selector">
             <select
@@ -602,13 +633,6 @@ export default function App() {
               <Printer size={20} /> IMPRIMIR
             </button>
           </div>
-
-          <header style={{ textAlign: 'center', marginBottom: '3rem', position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-            <div style={{ textAlign: 'center' }}>
-              <h1 style={{ color: 'var(--primary)', fontWeight: '800', letterSpacing: '-1px', margin: 0 }}>INVENTARIO DIGITAL BOHÍO <span style={{ fontSize: '0.8rem', verticalAlign: 'middle', background: '#e31e24', color: 'white', padding: '2px 8px', borderRadius: '4px' }}>V2</span></h1>
-              <p style={{ color: 'var(--text-muted)' }}>Capture y Gestión Profesional</p>
-            </div>
-          </header>
 
           <div className={`card collapsible-card ${expandedSections.ficha ? 'expanded' : ''}`}>
             <div className="collapsible-header" onClick={() => toggleSection('ficha')}>
