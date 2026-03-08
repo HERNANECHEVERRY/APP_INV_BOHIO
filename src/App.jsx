@@ -209,7 +209,7 @@ export default function App() {
     await supabase.auth.signOut();
   };
 
-  const compressImage = async (base64Str, maxWidth = 1200) => {
+  const compressImage = async (base64Str, maxWidth = 800) => {
     return new Promise((resolve) => {
       const img = new Image();
       img.src = base64Str;
@@ -225,7 +225,7 @@ export default function App() {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.7));
+        resolve(canvas.toDataURL('image/jpeg', 0.5));
       };
     });
   };
@@ -307,28 +307,6 @@ export default function App() {
 
       console.log("📂 Sincronizando con Google Drive...");
 
-      // SANITIZACIÓN: Quitamos los enormes base64 del objeto 'data' antes de enviarlo
-      // para evitar que el script de Google se rompa por el tamaño del archivo (importante para móviles)
-      const sanitizeData = (obj) => {
-        const copy = JSON.parse(JSON.stringify(obj));
-        if (copy.imagenPropiedad) copy.imagenPropiedad = "UPLOADED";
-        if (copy.contadores) {
-          Object.keys(copy.contadores).forEach(k => {
-            copy.contadores[k].imagenes = copy.contadores[k].imagenes.map(() => "UPLOADED");
-          });
-        }
-        if (copy.espacios) {
-          copy.espacios.forEach(sp => {
-            sp.elementos.forEach(el => {
-              el.imagenes = el.imagenes.map(() => "UPLOADED");
-            });
-          });
-        }
-        return copy;
-      };
-
-      const cleanData = sanitizeData(data);
-
       await fetch(import.meta.env.VITE_GOOGLE_SCRIPT_URL, {
         method: "POST",
         mode: "no-cors",
@@ -336,11 +314,11 @@ export default function App() {
         body: JSON.stringify({
           action: "save_data",
           propiedad: data.propiedad,
-          content: cleanData
+          content: data
         })
       });
 
-      alert('✅ ¡Guardado Exitoso!\n\n1. Supabase: Sincronizado\n2. Google Drive: Estructura y datos registrados.\nLas carpetas y fotos se crean en tiempo real al subir cada imagen.');
+      alert('✅ ¡Guardado Exitoso!\n\n1. Supabase: Sincronizado\n2. Google Drive: Estructura de carpetas y fotos creadas con éxito.');
       fetchProperties();
     } catch (error) {
       alert('Error al guardar: ' + error.message);
