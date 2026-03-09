@@ -946,6 +946,14 @@ export default function App() {
                                     <VoiceInput type="number" min="1" value={el.cantidad} onChange={v => updateElemento(e.id, el.id, 'cantidad', v)} />
                                   </div>
                                 </div>
+                                <div className="form-group" style={{ marginTop: '1rem' }}>
+                                  <label style={{ fontSize: '0.7rem' }}>Descripción Adicional (Reflejada en PDF)</label>
+                                  <VoiceInput
+                                    placeholder="Ej: Rayones leves, pintura saltada..."
+                                    value={el.descripcion}
+                                    onChange={v => updateElemento(e.id, el.id, 'descripcion', v)}
+                                  />
+                                </div>
                               </div>
                               <div className="image-gallery" style={{ marginTop: '1rem' }}>
                                 {el.imagenes.map((img, iidx) => <div key={iidx} className="gallery-item"><img src={img} alt="Detalle" /></div>)}
