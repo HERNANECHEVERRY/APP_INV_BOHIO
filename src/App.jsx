@@ -197,7 +197,7 @@ export default function App() {
 
   const [data, setData] = useState({
     contrato: '', propiedad: '', arrendador: '', arrendadorTel: '', arrendatario: '', arrendatarioTel: '',
-    direccion: '', fechaRecibo: '', fechaEntrega: '', aseguradora: '', tipoInmueble: '', telefonoGral: '',
+    direccion: '', fechaRecibo: '', fechaEntrega: '', tipoInmueble: '', telefonoGral: '',
     imagenPropiedad: '',
     contadores: {
       luz: { contrato: '', contador: '', lectura: '', imagenes: [] },
@@ -319,7 +319,6 @@ export default function App() {
         contrato: data.contrato,
         tipo_inmueble: data.tipoInmueble,
         telefono: data.telefonoGral,
-        aseguradora: data.aseguradora,
         data: data
       };
 
@@ -407,7 +406,7 @@ export default function App() {
     setExpandedMeter('luz');
     setData({
       contrato: '', propiedad: '', arrendador: '', arrendadorTel: '', arrendatario: '', arrendatarioTel: '',
-      direccion: '', fechaRecibo: '', fechaEntrega: '', aseguradora: '', tipoInmueble: '', telefonoGral: '',
+      direccion: '', fechaRecibo: '', fechaEntrega: '', tipoInmueble: '', telefonoGral: '',
       imagenPropiedad: '',
       contadores: {
         luz: { contrato: '', contador: '', lectura: '', imagenes: [] },
@@ -493,8 +492,11 @@ export default function App() {
     <div className="pdf-page">
       <div className="print-header">
         <h1>INVENTARIO INMUEBLE</h1>
-        <p style={{ fontWeight: '700', fontSize: '11pt', letterSpacing: '2px', color: '#555' }}>
-          ACTA ORIGINAL: {type === 'ARRENDADOR' ? 'PROPIETARIO / ARRENDADOR' : 'ARRENDATARIO'}
+        <p style={{ fontWeight: '800', fontSize: '12pt', color: '#e31e24', marginBottom: '4px' }}>
+          BOHÍO CONSULTORES INMOBILIARIA SAS - NIT 900474883
+        </p>
+        <p style={{ fontWeight: '700', fontSize: '10pt', letterSpacing: '2px', color: '#555' }}>
+          ACTA ORIGINAL: {type === 'ARRENDADOR' ? 'PROPIETARIO' : 'ARRENDATARIO'}
         </p>
       </div>
 
@@ -519,11 +521,8 @@ export default function App() {
             <td><strong>FECHA ENTREGA:</strong> {data.fechaEntrega}</td>
           </tr>
           <tr>
-            <td colSpan="2"><strong>ASEGURADORA:</strong> {data.aseguradora}</td>
-          </tr>
-          <tr>
             <td colSpan="2" style={{ background: '#f9f9f9' }}>
-              <strong>DATOS DEL {type}</strong>
+              <strong>DATOS DEL {type === 'ARRENDADOR' ? 'PROPIETARIO' : 'ARRENDATARIO'}</strong>
             </td>
           </tr>
           <tr>
@@ -610,15 +609,17 @@ export default function App() {
       <div style={{ marginTop: '4rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3rem' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ borderBottom: '2px solid #000', marginBottom: '8px', minHeight: '40px' }}></div>
-          <p style={{ fontSize: '8.5pt', fontWeight: '700' }}>{data.arrendador.toUpperCase() || '____________________'}</p>
-          <p style={{ fontSize: '8pt' }}>FIRMA ARRENDADOR / REPRESENTANTE</p>
+          <p style={{ fontSize: '8.5pt', fontWeight: '700' }}>
+            {type === 'ARRENDADOR' ? (data.arrendador.toUpperCase() || '____________________') : (data.arrendatario.toUpperCase() || '____________________')}
+          </p>
+          <p style={{ fontSize: '8pt' }}>FIRMA {type === 'ARRENDADOR' ? 'PROPIETARIO' : 'ARRENDATARIO'}</p>
           <p style={{ fontSize: '8pt' }}>C.C. ____________________</p>
         </div>
         <div style={{ textAlign: 'center' }}>
           <div style={{ borderBottom: '2px solid #000', marginBottom: '8px', minHeight: '40px' }}></div>
-          <p style={{ fontSize: '8.5pt', fontWeight: '700' }}>{data.arrendatario.toUpperCase() || '____________________'}</p>
-          <p style={{ fontSize: '8pt' }}>FIRMA ARRENDATARIO / RECIBE</p>
-          <p style={{ fontSize: '8pt' }}>C.C. ____________________</p>
+          <p style={{ fontSize: '8.5pt', fontWeight: '700' }}>BOHÍO CONSULTORES INMOBILIARIA SAS</p>
+          <p style={{ fontSize: '8pt' }}>NIT NUMERO 900474883</p>
+          <p style={{ fontSize: '8pt' }}>AUTORIZADO</p>
         </div>
       </div>
     </div>
@@ -730,7 +731,6 @@ export default function App() {
                   <div className="form-group"><label>Dirección Física</label><VoiceInput value={data.direccion} onChange={v => handleDataChange('direccion', v)} /></div>
                   <div className="form-group"><label>Tipo de Inmueble</label><VoiceInput value={data.tipoInmueble} onChange={v => handleDataChange('tipoInmueble', v)} /></div>
                   <div className="form-group"><label>Teléfono Propiedad</label><VoiceInput value={data.telefonoGral} onChange={v => handleDataChange('telefonoGral', v)} /></div>
-                  <div className="form-group"><label>Aseguradora</label><VoiceInput value={data.aseguradora} onChange={v => handleDataChange('aseguradora', v)} /></div>
                 </div>
 
                 {activePropertyId && (
@@ -812,7 +812,7 @@ export default function App() {
               <div className="collapsible-content" style={{ marginTop: '1.5rem' }}>
                 <div className="grid-2">
                   <div style={{ border: '1px solid #e2e8f0', padding: '1rem', borderRadius: '12px' }}>
-                    <h3 style={{ color: 'var(--primary)', marginBottom: '1rem', fontSize: '0.9rem' }}>ARRENDADOR</h3>
+                    <h3 style={{ color: 'var(--primary)', marginBottom: '1rem', fontSize: '0.9rem' }}>PROPIETARIO</h3>
                     <div className="form-group" style={{ marginBottom: '1rem' }}><label>Nombre</label><VoiceInput value={data.arrendador} onChange={v => handleDataChange('arrendador', v)} /></div>
                     <div className="form-group"><label>Teléfono</label><VoiceInput value={data.arrendadorTel} onChange={v => handleDataChange('arrendadorTel', v)} /></div>
                   </div>
