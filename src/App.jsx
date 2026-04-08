@@ -553,52 +553,56 @@ export default function App() {
         </table>
       ))}
 
-      <div className="section-title">DETALLE DE ESPACIOS</div>
-      <table className="print-table">
-        <thead>
-          <tr>
-            <th style={{ width: '25%' }}>ZONA / ESPACIO</th>
-            <th style={{ width: '75%' }}>ESTADO GENERAL / DESCRIPCIÓN</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.espacios.length > 0 ? data.espacios.map(e => (
-            <tr key={e.id}>
-              <td style={{ fontWeight: '700' }}>{e.nombre || 'Sin nombre'}</td>
-              <td>{e.descripcion || 'Sin descripción'}</td>
-            </tr>
-          )) : (
-            <tr><td colSpan="2" style={{ textAlign: 'center', color: '#999' }}>No se registraron espacios</td></tr>
-          )}
-        </tbody>
-      </table>
-
-      <div className="section-title">INVENTARIO DETALLADO DE ELEMENTOS</div>
-      <table className="print-table">
-        <thead>
-          <tr>
-            <th>ESPACIO</th>
-            <th>ELEMENTO</th>
-            <th>#</th>
-            <th>ESTADO</th>
-            <th>DESCRIPCIONES ADICIONALES</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.espacios.flatMap(e => e.elementos.map(el => (
-            <tr key={el.id}>
-              <td>{e.nombre}</td>
-              <td>{el.nombre}</td>
-              <td style={{ textAlign: 'center' }}>{el.cantidad}</td>
-              <td style={{ fontWeight: '700' }}>{el.estado}</td>
-              <td>{el.descripcion}</td>
-            </tr>
-          )))}
-          {data.espacios.every(e => e.elementos.length === 0) && (
-            <tr><td colSpan="5" style={{ textAlign: 'center', color: '#999' }}>No se registraron elementos detallados</td></tr>
-          )}
-        </tbody>
-      </table>
+      <div className="section-title">DETALLE DE INVENTARIO POR ZONAS</div>
+      {data.espacios.length > 0 ? data.espacios.map(espacio => (
+        <div key={espacio.id} style={{ marginBottom: '1.5rem', breakInside: 'avoid' }}>
+          <table className="print-table" style={{ marginBottom: '0' }}>
+            <thead>
+              <tr>
+                <th style={{ background: '#334155', color: 'white', width: '30%' }}>ZONA / ESPACIO</th>
+                <th style={{ background: '#f8fafc', color: '#1e293b' }}>ESTADO GENERAL Y DESCRIPCIÓN DE LA ZONA</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={{ fontWeight: '800', fontSize: '11pt', verticalAlign: 'top' }}>{espacio.nombre || 'Sin nombre'}</td>
+                <td style={{ fontSize: '9pt', color: '#334155' }}>{espacio.descripcion || 'Sin descripción general registrada.'}</td>
+              </tr>
+            </tbody>
+          </table>
+          
+          <table className="print-table">
+            <thead>
+              <tr>
+                <th style={{ width: '40%', background: '#f1f5f9', fontSize: '8pt' }}>ELEMENTO</th>
+                <th style={{ width: '10%', background: '#f1f5f9', fontSize: '8pt', textAlign: 'center' }}>CANT.</th>
+                <th style={{ width: '15%', background: '#f1f5f9', fontSize: '8pt' }}>ESTADO</th>
+                <th style={{ width: '35%', background: '#f1f5f9', fontSize: '8pt' }}>DETALLES ESPECÍFICOS DEL ELEMENTO</th>
+              </tr>
+            </thead>
+            <tbody>
+              {espacio.elementos.length > 0 ? espacio.elementos.map(el => (
+                <tr key={el.id}>
+                  <td style={{ fontWeight: '600' }}>{el.nombre}</td>
+                  <td style={{ textAlign: 'center' }}>{el.cantidad}</td>
+                  <td style={{ fontWeight: '700', color: el.estado === 'MALO' ? '#e31e24' : 'inherit' }}>{el.estado}</td>
+                  <td style={{ fontSize: '8.5pt' }}>{el.descripcion || '-'}</td>
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan="4" style={{ textAlign: 'center', color: '#94a3b8', fontSize: '8pt', fontStyle: 'italic' }}>
+                    No se registraron elementos detallados en esta zona.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )) : (
+        <div style={{ textAlign: 'center', padding: '2rem', border: '1px solid #eee', color: '#94a3b8' }}>
+          No hay espacios registrados en este inventario.
+        </div>
+      )}
 
       <div style={{ marginTop: '2rem', fontSize: '8pt', color: '#444', border: '1px solid #ddd', padding: '10px' }}>
         <p><strong>Nota 1:</strong> Registro fotográfico obligatorio solo para zonas en mal estado o por ausencia del propietario.</p>
