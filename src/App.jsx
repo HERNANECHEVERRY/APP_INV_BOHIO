@@ -493,7 +493,7 @@ export default function App() {
       <div className="print-header">
         <h1>INVENTARIO INMUEBLE</h1>
         <p style={{ fontWeight: '800', fontSize: '12pt', color: '#e31e24', marginBottom: '4px' }}>
-          BOHÍO CONSULTORES INMOBILIARIA SAS - NIT 900474883
+          BOHIO CONSULTORES INMOBILIARIOS SAS - NIT 900 479883-8
         </p>
         <p style={{ fontWeight: '700', fontSize: '10pt', letterSpacing: '2px', color: '#555' }}>
           ACTA ORIGINAL: {type === 'ARRENDADOR' ? 'PROPIETARIO' : 'ARRENDATARIO'}
@@ -536,10 +536,10 @@ export default function App() {
         <table key={tipo} className="print-table">
           <thead>
             <tr>
-              <th style={{ background: '#e31e24', color: 'white' }}>MEDIDOR {tipo.toUpperCase()}</th>
+              <th style={{ background: '#e31e24', color: 'white', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>MEDIDOR {tipo.toUpperCase()}</th>
               <th>N° CONTRATO</th>
               <th>N° CONTADOR</th>
-              <th>ÚLTIMA LECTURA</th>
+              <th>LECTURA</th>
             </tr>
           </thead>
           <tbody>
@@ -621,8 +621,8 @@ export default function App() {
         </div>
         <div style={{ textAlign: 'center' }}>
           <div style={{ borderBottom: '2px solid #000', marginBottom: '8px', minHeight: '40px' }}></div>
-          <p style={{ fontSize: '8.5pt', fontWeight: '700' }}>BOHÍO CONSULTORES INMOBILIARIA SAS</p>
-          <p style={{ fontSize: '8pt' }}>NIT NUMERO 900474883</p>
+          <p style={{ fontSize: '8.5pt', fontWeight: '700' }}>BOHIO CONSULTORES INMOBILIARIOS SAS</p>
+          <p style={{ fontSize: '8pt' }}>NIT 900 479883-8</p>
           <p style={{ fontSize: '8pt' }}>AUTORIZADO</p>
         </div>
       </div>
