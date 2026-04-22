@@ -562,7 +562,7 @@ export default function App() {
           <table className="print-table" style={{ marginBottom: '0' }}>
             <thead>
               <tr>
-                <th style={{ background: '#334155', color: 'white', width: '30%' }}>ZONA / ESPACIO</th>
+                <th style={{ background: 'transparent', color: '#000', border: '1px solid #000', width: '30%' }}>ZONA / ESPACIO</th>
                 <th style={{ background: '#f8fafc', color: '#1e293b' }}>ESTADO GENERAL Y DESCRIPCIÓN DE LA ZONA</th>
               </tr>
             </thead>

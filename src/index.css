@@ -80,8 +80,9 @@ body {
 }
 
 .section-title {
-  background-color: var(--primary);
-  color: white;
+  border: 1px solid #000;
+  background-color: transparent;
+  color: #000;
   padding: 6px;
   font-weight: 700;
   margin-top: 1.5rem;
