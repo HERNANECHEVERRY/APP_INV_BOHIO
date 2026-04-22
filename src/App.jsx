@@ -186,6 +186,7 @@ export default function App() {
   const [activeElementId, setActiveElementId] = useState(null);
   const [activePropertyId, setActivePropertyId] = useState(null);
   const [expandedSections, setExpandedSections] = useState({ ficha: true, fachada: false, partes: false });
+  const [printMode, setPrintMode] = useState('BOTH'); // 'PROPIETARIO', 'ARRENDATARIO', 'BOTH'
 
   const toggleSection = (sec) => setExpandedSections(prev => ({ ...prev, [sec]: !prev[sec] }));
   const toggleMeter = (tipo) => setExpandedMeter(expandedMeter === tipo ? null : tipo);
@@ -271,6 +272,7 @@ export default function App() {
     const compressedBase64 = await compressImage(base64);
 
     const payload = {
+      folderId: import.meta.env.VITE_GOOGLE_DRIVE_FOLDER_ID,
       propiedad: data.propiedad || "Sin_Nombre",
       seccion: path,
       filename: `foto_${Date.now()}.jpg`,
@@ -363,6 +365,7 @@ export default function App() {
         headers: { "Content-Type": "text/plain" },
         body: JSON.stringify({
           action: "save_data",
+          folderId: import.meta.env.VITE_GOOGLE_DRIVE_FOLDER_ID,
           propiedad: data.propiedad,
           content: cleanData
         })
@@ -536,7 +539,7 @@ export default function App() {
         <table key={tipo} className="print-table">
           <thead>
             <tr>
-              <th style={{ background: '#e31e24', color: 'white', fontWeight: '900', fontSize: '11pt', letterSpacing: '1px', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>MEDIDOR {tipo.toUpperCase()}</th>
+              <th style={{ background: '#f8fafc', color: '#1e293b', fontWeight: '900', fontSize: '11pt', border: '1px solid #000', letterSpacing: '1px', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>MEDIDOR {tipo.toUpperCase()}</th>
               <th>N° CONTRATO</th>
               <th>N° CONTADOR</th>
               <th>LECTURA</th>
@@ -610,7 +613,7 @@ export default function App() {
         <p style={{ marginTop: '0.5rem' }}>Acepto y firmo en conformidad el presente inventario que forma parte integral del contrato de arrendamiento.</p>
       </div>
 
-      <div style={{ marginTop: '4rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3rem' }}>
+      <div style={{ marginTop: '4rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3rem', breakInside: 'avoid' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ borderBottom: '2px solid #000', marginBottom: '8px', minHeight: '40px' }}></div>
           <p style={{ fontSize: '8.5pt', fontWeight: '700' }}>
@@ -673,9 +676,19 @@ export default function App() {
           <button className="btn-save-sidebar" onClick={handleSave} disabled={isSaving}>
             <FileText size={20} /> {isSaving ? 'GUARDANDO...' : 'GUARDAR CAMBIOS'}
           </button>
-          <button className="btn-print-sidebar" onClick={() => window.print()}>
-            <Printer size={20} /> IMPRIMIR ACTAS
-          </button>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+            <p style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '700', marginBottom: '0' }}>OPCIONES DE IMPRESIÓN:</p>
+            <button className="btn-print-sidebar" onClick={() => { setPrintMode('PROPIETARIO'); setTimeout(() => window.print(), 100); }}>
+              <UserIcon size={16} /> ACTA PROPIETARIO
+            </button>
+            <button className="btn-print-sidebar" onClick={() => { setPrintMode('ARRENDATARIO'); setTimeout(() => window.print(), 100); }}>
+              <UserIcon size={16} /> ACTA ARRENDATARIO
+            </button>
+            <button className="btn-print-sidebar" onClick={() => { setPrintMode('BOTH'); setTimeout(() => window.print(), 100); }} style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#475569' }}>
+              <Printer size={16} /> AMBAS ACTAS
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -708,13 +721,18 @@ export default function App() {
             </select>
           </div>
 
-          <div className="mobile-actions no-print">
-            <button className="btn-save" onClick={handleSave} disabled={isSaving}>
-              <FileText size={20} /> {isSaving ? 'GUARDAR' : 'GUARDAR'}
+          <div className="mobile-actions no-print" style={{ gridTemplateColumns: '1fr', gap: '0.5rem' }}>
+            <button className="btn-save" onClick={handleSave} disabled={isSaving} style={{ width: '100%' }}>
+              <FileText size={20} /> {isSaving ? 'GUARDANDO...' : 'GUARDAR'}
             </button>
-            <button className="btn-primary" onClick={() => window.print()}>
-              <Printer size={20} /> IMPRIMIR
-            </button>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+              <button className="btn-primary" onClick={() => { setPrintMode('PROPIETARIO'); setTimeout(() => window.print(), 100); }} style={{ fontSize: '0.75rem' }}>
+                <Printer size={18} /> PROPIETARIO
+              </button>
+              <button className="btn-primary" onClick={() => { setPrintMode('ARRENDATARIO'); setTimeout(() => window.print(), 100); }} style={{ fontSize: '0.75rem' }}>
+                <Printer size={18} /> ARRENDATARIO
+              </button>
+            </div>
           </div>
 
           <div className={`card collapsible-card ${expandedSections.ficha ? 'expanded' : ''}`}>
@@ -983,9 +1001,15 @@ export default function App() {
         </div>
 
         <div className="print-only">
-          <InventarioDocument type="ARRENDADOR" />
-          <div className="page-break"></div>
-          <InventarioDocument type="ARRENDATARIO" />
+          {(printMode === 'PROPIETARIO' || printMode === 'BOTH') && (
+            <InventarioDocument type="ARRENDADOR" />
+          )}
+          
+          {printMode === 'BOTH' && <div className="page-break"></div>}
+          
+          {(printMode === 'ARRENDATARIO' || printMode === 'BOTH') && (
+            <InventarioDocument type="ARRENDATARIO" />
+          )}
         </div>
 
         {cameraConfig && (
