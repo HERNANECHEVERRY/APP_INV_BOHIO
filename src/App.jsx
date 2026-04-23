@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Camera, Plus, Trash2, Printer, Home, FileText, Zap, Droplets, Flame, CheckCircle, Building, Mic, MicOff, User as UserIcon, X, Image as ImageIcon, LogIn, LogOut, UserPlus, Mail, Key, ChevronDown, ChevronUp } from 'lucide-react';
 import './App.css';
 import { supabase } from './supabase';
+// Importación removida de aquí para evitar bloqueos en la carga
 
 const LOGO_URL = "https://i.postimg.cc/k47By9mJ/logo-bohio.jpg";
 
@@ -235,6 +236,57 @@ export default function App() {
     await supabase.auth.signOut();
   };
 
+  const downloadPropertyZip = async () => {
+    if (!data.propiedad) return alert("Carga una propiedad primero.");
+    setIsSaving(true);
+    try {
+      // Cargamos la librería solo cuando se necesita
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+      const root = zip.folder(data.propiedad);
+
+      const addFile = async (url, folderPath, fileName) => {
+        if (!url || url === "SENT" || !url.startsWith('http')) return;
+        try {
+          const res = await fetch(url);
+          const blob = await res.blob();
+          root.folder(folderPath).file(fileName, blob);
+        } catch (e) { console.error("Error bajando imagen para ZIP:", e); }
+      };
+
+      // Fachada
+      await addFile(data.imagenPropiedad, "FACHADA", "fachada.jpg");
+
+      // Contadores
+      for (const t in data.contadores) {
+        for (let i = 0; i < data.contadores[t].imagenes.length; i++) {
+          await addFile(data.contadores[t].imagenes[i], `SERVICIOS_PUBLICOS/${t.toUpperCase()}`, `foto_${i}.jpg`);
+        }
+      }
+
+      // Espacios
+      for (const sp of data.espacios) {
+        const spName = (sp.nombre || "Zona_Sin_Nombre").replace(/[/\\?%*:|"<>]/g, '-');
+        for (const el of sp.elementos) {
+          const elName = (el.nombre || "Elemento").replace(/[/\\?%*:|"<>]/g, '-');
+          for (let i = 0; i < el.imagenes.length; i++) {
+            await addFile(el.imagenes[i], `ZONAS/${spName}/${elName}`, `foto_${i}.jpg`);
+          }
+        }
+      }
+
+      const content = await zip.generateAsync({ type: "blob" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(content);
+      link.download = `Inventario_${data.propiedad}.zip`;
+      link.click();
+    } catch (err) {
+      alert("Error generando ZIP: " + err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const compressImage = async (base64Str, maxWidth = 600) => {
     return new Promise((resolve) => {
       const img = new Image();
@@ -268,40 +320,60 @@ export default function App() {
       });
     }
 
-    // Comprimir antes de enviar si es necesario
     const compressedBase64 = await compressImage(base64);
+    const propNameClean = (data.propiedad || "Sin_Nombre").replace(/[/\\?%*:|"<>]/g, '-');
+    const fileName = `foto_${Date.now()}.jpg`;
 
+    // 1. Sincronización con Google Drive (Backup)
     const payload = {
       folderId: import.meta.env.VITE_GOOGLE_DRIVE_FOLDER_ID,
       propiedad: data.propiedad || "Sin_Nombre",
       seccion: path,
-      filename: `foto_${Date.now()}.jpg`,
+      filename: fileName,
       image: compressedBase64
     };
 
-    console.log("🚀 Enviando a Google Drive...");
-
     try {
-      await fetch(import.meta.env.VITE_GOOGLE_SCRIPT_URL, {
+      fetch(import.meta.env.VITE_GOOGLE_SCRIPT_URL, {
         method: "POST",
         mode: "no-cors",
         headers: { "Content-Type": "text/plain" },
         body: JSON.stringify(payload)
       });
     } catch (e) {
-      console.warn("Fallo sincronización individual:", e);
+      console.warn("Fallo sincronización Drive:", e);
     }
 
-    return compressedBase64;
+    // 2. Subida a Supabase Storage (Principal)
+    try {
+      const res = await fetch(compressedBase64);
+      const blob = await res.blob();
+      const filePath = `${propNameClean}/${path}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('FOTOS_INVENTARIOS')
+        .upload(filePath, blob);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('FOTOS_INVENTARIOS')
+        .getPublicUrl(filePath);
+
+      return publicUrl; // Retornamos la URL pública para guardarla en la DB
+    } catch (err) {
+      console.error("Error Storage:", err);
+      return compressedBase64; // Fallback a base64 si falla el storage
+    }
   };
 
   const handleProcessImage = async (fileOrUrl, path, callback) => {
     try {
-      const publicUrl = await uploadImage(fileOrUrl, path);
-      callback(publicUrl);
+      const resultUrl = await uploadImage(fileOrUrl, path);
+      callback(resultUrl);
     } catch (err) {
       console.error(err);
-      alert("Error subiendo imagen: " + err.message);
+      alert("Error procesando imagen: " + err.message);
     }
   };
 
@@ -338,19 +410,21 @@ export default function App() {
 
       console.log("📂 Sincronizando con Google Drive...");
 
-      // Sanitización para éxito en móviles y creación de PDF en carpeta 'general'
+      // Sanitización para evitar guardar Base64 en la base de datos de Supabase
       const sanitizeData = (obj) => {
         const copy = JSON.parse(JSON.stringify(obj));
-        if (copy.imagenPropiedad) copy.imagenPropiedad = "SENT";
+        const clean = (val) => (typeof val === 'string' && val.startsWith('data:image')) ? "SENT" : val;
+
+        if (copy.imagenPropiedad) copy.imagenPropiedad = clean(copy.imagenPropiedad);
         if (copy.contadores) {
           Object.keys(copy.contadores).forEach(k => {
-            copy.contadores[k].imagenes = copy.contadores[k].imagenes.map(() => "SENT");
+            copy.contadores[k].imagenes = copy.contadores[k].imagenes.map(img => clean(img));
           });
         }
         if (copy.espacios) {
           copy.espacios.forEach(sp => {
             sp.elementos.forEach(el => {
-              el.imagenes = el.imagenes.map(() => "SENT");
+              el.imagenes = el.imagenes.map(img => clean(img));
             });
           });
         }
@@ -358,6 +432,9 @@ export default function App() {
       };
 
       const cleanData = sanitizeData(data);
+
+      // Actualizar el registro en Supabase con la data limpia (sin base64)
+      await supabase.from('propiedades').update({ data: cleanData }).eq('id', activePropertyId || newProp[0].id);
 
       await fetch(import.meta.env.VITE_GOOGLE_SCRIPT_URL, {
         method: "POST",
@@ -676,8 +753,12 @@ export default function App() {
           <button className="btn-save-sidebar" onClick={handleSave} disabled={isSaving}>
             <FileText size={20} /> {isSaving ? 'GUARDANDO...' : 'GUARDAR CAMBIOS'}
           </button>
+
+          <button className="btn-save-sidebar" onClick={downloadPropertyZip} style={{ background: '#10b981', color: 'white', marginTop: '0.5rem' }} disabled={isSaving}>
+            <Zap size={20} /> {isSaving ? 'PROCESANDO...' : 'DESCARGAR FOTOS (ZIP)'}
+          </button>
           
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1.5rem' }}>
             <p style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '700', marginBottom: '0' }}>OPCIONES DE IMPRESIÓN:</p>
             <button className="btn-print-sidebar" onClick={() => { setPrintMode('PROPIETARIO'); setTimeout(() => window.print(), 100); }}>
               <UserIcon size={16} /> ACTA PROPIETARIO
@@ -725,7 +806,10 @@ export default function App() {
             <button className="btn-save" onClick={handleSave} disabled={isSaving} style={{ width: '100%' }}>
               <FileText size={20} /> {isSaving ? 'GUARDANDO...' : 'GUARDAR'}
             </button>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+            <button className="btn-save" onClick={downloadPropertyZip} disabled={isSaving} style={{ width: '100%', background: '#10b981', marginTop: '0.5rem' }}>
+              <Zap size={20} /> {isSaving ? 'PROCESANDO...' : 'DESCARGAR FOTOS (ZIP)'}
+            </button>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginTop: '0.5rem' }}>
               <button className="btn-primary" onClick={() => { setPrintMode('PROPIETARIO'); setTimeout(() => window.print(), 100); }} style={{ fontSize: '0.75rem' }}>
                 <Printer size={18} /> PROPIETARIO
               </button>
