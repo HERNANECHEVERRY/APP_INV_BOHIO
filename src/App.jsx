@@ -246,31 +246,43 @@ export default function App() {
       const root = zip.folder(data.propiedad);
 
       const addFile = async (url, folderPath, fileName) => {
-        if (!url || url === "SENT" || !url.startsWith('http')) return;
+        if (!url || url === "SENT" || typeof url !== 'string' || !url.startsWith('http')) return;
         try {
-          const res = await fetch(url);
+          const res = await fetch(url, { mode: 'cors' });
+          if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
           const blob = await res.blob();
           root.folder(folderPath).file(fileName, blob);
-        } catch (e) { console.error("Error bajando imagen para ZIP:", e); }
+        } catch (e) { 
+          console.error(`Error bajando imagen ${fileName} desde ${url}:`, e); 
+        }
       };
 
       // Fachada
-      await addFile(data.imagenPropiedad, "FACHADA", "fachada.jpg");
+      if (data.imagenPropiedad) {
+        await addFile(data.imagenPropiedad, "FACHADA", "fachada.jpg");
+      }
 
       // Contadores
-      for (const t in data.contadores) {
-        for (let i = 0; i < data.contadores[t].imagenes.length; i++) {
-          await addFile(data.contadores[t].imagenes[i], `SERVICIOS_PUBLICOS/${t.toUpperCase()}`, `foto_${i}.jpg`);
+      if (data.contadores) {
+        for (const t in data.contadores) {
+          const imgs = data.contadores[t]?.imagenes || [];
+          for (let i = 0; i < imgs.length; i++) {
+            await addFile(imgs[i], `SERVICIOS_PUBLICOS/${t.toUpperCase()}`, `foto_${i}.jpg`);
+          }
         }
       }
 
       // Espacios
-      for (const sp of data.espacios) {
-        const spName = (sp.nombre || "Zona_Sin_Nombre").replace(/[/\\?%*:|"<>]/g, '-');
-        for (const el of sp.elementos) {
-          const elName = (el.nombre || "Elemento").replace(/[/\\?%*:|"<>]/g, '-');
-          for (let i = 0; i < el.imagenes.length; i++) {
-            await addFile(el.imagenes[i], `ZONAS/${spName}/${elName}`, `foto_${i}.jpg`);
+      if (data.espacios && Array.isArray(data.espacios)) {
+        for (const sp of data.espacios) {
+          const spName = (sp.nombre || "Zona_Sin_Nombre").replace(/[/\\?%*:|"<>]/g, '-');
+          const elementos = sp.elementos || [];
+          for (const el of elementos) {
+            const elName = (el.nombre || "Elemento").replace(/[/\\?%*:|"<>]/g, '-');
+            const imgs = el.imagenes || [];
+            for (let i = 0; i < imgs.length; i++) {
+              await addFile(imgs[i], `ZONAS/${spName}/${elName}`, `foto_${i}.jpg`);
+            }
           }
         }
       }
