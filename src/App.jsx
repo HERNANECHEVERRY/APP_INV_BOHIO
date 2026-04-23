@@ -376,10 +376,11 @@ export default function App() {
     try {
       const res = await fetch(compressedBase64);
       const blob = await res.blob();
-      // Limpieza profunda del nombre para evitar errores de red
-      const safePropName = propNameClean.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '_');
-      const safePath = path.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '_');
-      const filePath = `${safePropName}/${safePath}/${fileName}`;
+      
+      // Ruta ultra-simplificada: solo letras y números
+      const cleanName = propNameClean.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      const cleanPath = path.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      const filePath = `${cleanName}/${cleanPath}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('FOTOS_INVENTARIOS')
@@ -391,11 +392,11 @@ export default function App() {
         .from('FOTOS_INVENTARIOS')
         .getPublicUrl(filePath);
 
-      return publicUrl;
+      // Añadimos un timestamp para evitar que el navegador use una versión vieja (caché)
+      return `${publicUrl}?t=${Date.now()}`;
     } catch (err) {
       console.error("Error crítico en Supabase Storage:", err);
-      // Lanzamos el error para que handleProcessImage lo capture y muestre el alert
-      throw new Error("No se pudo subir la foto a Supabase. Revisa los permisos de Storage. Detalle: " + err.message);
+      throw new Error("Error de Storage: " + err.message);
     }
   };
 
@@ -926,7 +927,14 @@ export default function App() {
                 <div className="form-group">
                   <div className={`image-upload-area ${data.imagenPropiedad ? 'has-image' : ''}`} style={{ minHeight: '200px', cursor: 'default' }}>
                     {data.imagenPropiedad ? (
-                      <img src={data.imagenPropiedad} alt="Propiedad" />
+                      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                        <img src={data.imagenPropiedad} alt="Propiedad" />
+                        <div style={{ position: 'absolute', bottom: '10px', left: '10px', display: 'flex', gap: '5px' }}>
+                          <a href={data.imagenPropiedad} target="_blank" rel="noreferrer" className="btn-save" style={{ padding: '4px 8px', fontSize: '10px', background: 'rgba(0,0,0,0.6)' }}>
+                             Abrir Original
+                          </a>
+                        </div>
+                      </div>
                     ) : (
                       <div style={{ display: 'flex', gap: '1rem' }}>
                         <button className="btn-outline" onClick={() => setCameraConfig({ onCapture: (url) => handleProcessImage(url, 'FACHADA', (pUrl) => handleDataChange('imagenPropiedad', pUrl)) })}>
