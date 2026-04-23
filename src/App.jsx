@@ -428,14 +428,19 @@ export default function App() {
         data: data
       };
 
+      let currentId = activePropertyId;
       let error;
-      if (activePropertyId) {
-        const { error: err } = await supabase.from('propiedades').update(payload).eq('id', activePropertyId);
+      
+      if (currentId) {
+        const { error: err } = await supabase.from('propiedades').update(payload).eq('id', currentId);
         error = err;
       } else {
-        const { data: newProp, error: err } = await supabase.from('propiedades').insert(payload).select();
+        const { data: insertData, error: err } = await supabase.from('propiedades').insert(payload).select();
         error = err;
-        if (newProp) setActivePropertyId(newProp[0].id);
+        if (insertData && insertData[0]) {
+          currentId = insertData[0].id;
+          setActivePropertyId(currentId);
+        }
       }
 
       if (error) throw error;
@@ -466,7 +471,7 @@ export default function App() {
       const cleanData = sanitizeData(data);
 
       // Actualizar el registro en Supabase con la data limpia (sin base64)
-      await supabase.from('propiedades').update({ data: cleanData }).eq('id', activePropertyId || newProp[0].id);
+      await supabase.from('propiedades').update({ data: cleanData }).eq('id', currentId);
 
       await fetch(import.meta.env.VITE_GOOGLE_SCRIPT_URL, {
         method: "POST",
