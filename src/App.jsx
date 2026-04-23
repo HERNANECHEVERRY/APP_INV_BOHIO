@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Camera, Plus, Trash2, Printer, Home, FileText, Zap, Droplets, Flame, CheckCircle, Building, Mic, MicOff, User as UserIcon, X, Image as ImageIcon, LogIn, LogOut, UserPlus, Mail, Key, ChevronDown, ChevronUp } from 'lucide-react';
 import './App.css';
 import { supabase } from './supabase';
-// Importación removida de aquí para evitar bloqueos en la carga
 
 const LOGO_URL = "https://i.postimg.cc/k47By9mJ/logo-bohio.jpg";
 
@@ -236,85 +235,6 @@ export default function App() {
     await supabase.auth.signOut();
   };
 
-  const downloadPropertyZip = async () => {
-    if (!data.propiedad) return alert("Carga una propiedad primero.");
-    setIsSaving(true);
-    try {
-      // Cargamos la librería solo cuando se necesita
-      const JSZip = (await import('jszip')).default;
-      const zip = new JSZip();
-      const root = zip.folder(data.propiedad);
-
-      const addFile = async (url, folderPath, fileName) => {
-        if (!url || url === "SENT" || typeof url !== 'string' || !url.startsWith('http')) return;
-        try {
-          let blob;
-          // Si la foto está en nuestro Supabase, la bajamos directamente usando nuestra sesión
-          if (url.includes('supabase.co/storage/v1/object/public/FOTOS_INVENTARIOS/')) {
-            const pathInBucket = decodeURIComponent(url.split('FOTOS_INVENTARIOS/')[1]);
-            const { data: downloadData, error } = await supabase.storage
-              .from('FOTOS_INVENTARIOS')
-              .download(pathInBucket);
-            
-            if (error) throw error;
-            blob = downloadData;
-          } else {
-            // Si es de otro sitio (ej: Drive), usamos fetch normal
-            const res = await fetch(url, { mode: 'cors' });
-            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-            blob = await res.blob();
-          }
-          
-          if (blob) {
-            root.folder(folderPath).file(fileName, blob);
-          }
-        } catch (e) { 
-          console.error(`Error bajando imagen ${fileName} desde ${url}:`, e); 
-        }
-      };
-
-      // Fachada
-      if (data.imagenPropiedad) {
-        await addFile(data.imagenPropiedad, "FACHADA", "fachada.jpg");
-      }
-
-      // Contadores
-      if (data.contadores) {
-        for (const t in data.contadores) {
-          const imgs = data.contadores[t]?.imagenes || [];
-          for (let i = 0; i < imgs.length; i++) {
-            await addFile(imgs[i], `SERVICIOS_PUBLICOS/${t.toUpperCase()}`, `foto_${i}.jpg`);
-          }
-        }
-      }
-
-      // Espacios
-      if (data.espacios && Array.isArray(data.espacios)) {
-        for (const sp of data.espacios) {
-          const spName = (sp.nombre || "Zona_Sin_Nombre").replace(/[/\\?%*:|"<>]/g, '-');
-          const elementos = sp.elementos || [];
-          for (const el of elementos) {
-            const elName = (el.nombre || "Elemento").replace(/[/\\?%*:|"<>]/g, '-');
-            const imgs = el.imagenes || [];
-            for (let i = 0; i < imgs.length; i++) {
-              await addFile(imgs[i], `ZONAS/${spName}/${elName}`, `foto_${i}.jpg`);
-            }
-          }
-        }
-      }
-
-      const content = await zip.generateAsync({ type: "blob" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(content);
-      link.download = `Inventario_${data.propiedad}.zip`;
-      link.click();
-    } catch (err) {
-      alert("Error generando ZIP: " + err.message);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const compressImage = async (base64Str, maxWidth = 600) => {
     return new Promise((resolve) => {
       const img = new Image();
@@ -348,74 +268,40 @@ export default function App() {
       });
     }
 
+    // Comprimir antes de enviar si es necesario
     const compressedBase64 = await compressImage(base64);
-    const propNameClean = (data.propiedad || "Sin_Nombre").replace(/[/\\?%*:|"<>]/g, '-');
-    const fileName = `foto_${Date.now()}.jpg`;
 
-    // 1. Sincronización con Google Drive (Backup)
     const payload = {
       folderId: import.meta.env.VITE_GOOGLE_DRIVE_FOLDER_ID,
       propiedad: data.propiedad || "Sin_Nombre",
       seccion: path,
-      filename: fileName,
+      filename: `foto_${Date.now()}.jpg`,
       image: compressedBase64
     };
 
+    console.log("🚀 Enviando a Google Drive...");
+
     try {
-      fetch(import.meta.env.VITE_GOOGLE_SCRIPT_URL, {
+      await fetch(import.meta.env.VITE_GOOGLE_SCRIPT_URL, {
         method: "POST",
         mode: "no-cors",
         headers: { "Content-Type": "text/plain" },
         body: JSON.stringify(payload)
       });
     } catch (e) {
-      console.warn("Fallo sincronización Drive:", e);
+      console.warn("Fallo sincronización individual:", e);
     }
 
-    // 2. Subida a Supabase Storage (Principal)
-    try {
-      // Conversión manual de base64 a Blob (más segura que fetch)
-      const byteString = atob(compressedBase64.split(',')[1]);
-      const mimeString = compressedBase64.split(',')[0].split(':')[1].split(';')[0];
-      const ab = new ArrayBuffer(byteString.length);
-      const ia = new Uint8Array(ab);
-      for (let i = 0; i < byteString.length; i++) {
-        ia[i] = byteString.charCodeAt(i);
-      }
-      const blob = new Blob([ab], { type: mimeString });
-      
-      const cleanName = propNameClean.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-      const cleanPath = path.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-      const filePath = `${cleanName}/${cleanPath}/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('FOTOS_INVENTARIOS')
-        .upload(filePath, blob, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('FOTOS_INVENTARIOS')
-        .getPublicUrl(filePath);
-
-      const finalUrl = `${publicUrl}?t=${Date.now()}`;
-      return finalUrl;
-    } catch (err) {
-      alert("Fallo en Storage: " + err.message);
-      throw err;
-    }
+    return compressedBase64;
   };
 
   const handleProcessImage = async (fileOrUrl, path, callback) => {
     try {
-      const resultUrl = await uploadImage(fileOrUrl, path);
-      if (resultUrl && resultUrl.startsWith('http')) {
-        alert("¡Foto procesada con éxito!");
-      }
-      callback(resultUrl);
+      const publicUrl = await uploadImage(fileOrUrl, path);
+      callback(publicUrl);
     } catch (err) {
       console.error(err);
-      alert("Error procesando imagen: " + err.message);
+      alert("Error subiendo imagen: " + err.message);
     }
   };
 
@@ -438,54 +324,55 @@ export default function App() {
         data: data
       };
 
-      let currentId = activePropertyId;
       let error;
-      
-      if (currentId) {
-        const { error: err } = await supabase.from('propiedades').update(payload).eq('id', currentId);
+      if (activePropertyId) {
+        const { error: err } = await supabase.from('propiedades').update(payload).eq('id', activePropertyId);
         error = err;
       } else {
-        const { data: insertData, error: err } = await supabase.from('propiedades').insert(payload).select();
+        const { data: newProp, error: err } = await supabase.from('propiedades').insert(payload).select();
         error = err;
-        if (insertData && insertData[0]) {
-          currentId = insertData[0].id;
-          setActivePropertyId(currentId);
-        }
+        if (newProp) setActivePropertyId(newProp[0].id);
       }
 
       if (error) throw error;
 
       console.log("📂 Sincronizando con Google Drive...");
 
-      // Actualizar el registro en Supabase con la data (incluyendo las URLs de Storage)
-      const { error: finalUpdateError } = await supabase.from('propiedades').update({ data: data }).eq('id', currentId);
-      if (finalUpdateError) throw finalUpdateError;
+      // Sanitización para éxito en móviles y creación de PDF en carpeta 'general'
+      const sanitizeData = (obj) => {
+        const copy = JSON.parse(JSON.stringify(obj));
+        if (copy.imagenPropiedad) copy.imagenPropiedad = "SENT";
+        if (copy.contadores) {
+          Object.keys(copy.contadores).forEach(k => {
+            copy.contadores[k].imagenes = copy.contadores[k].imagenes.map(() => "SENT");
+          });
+        }
+        if (copy.espacios) {
+          copy.espacios.forEach(sp => {
+            sp.elementos.forEach(el => {
+              el.imagenes = el.imagenes.map(() => "SENT");
+            });
+          });
+        }
+        return copy;
+      };
 
-      // Sincronización con Google Drive
-      try {
-        await fetch(import.meta.env.VITE_GOOGLE_SCRIPT_URL, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "text/plain" },
-          body: JSON.stringify({
-            action: "save_data",
-            folderId: import.meta.env.VITE_GOOGLE_DRIVE_FOLDER_ID,
-            propiedad: data.propiedad,
-            content: data // Enviamos la data completa
-          })
-        });
-      } catch (e) { console.warn("Sincronización Drive diferida:", e); }
+      const cleanData = sanitizeData(data);
 
-      alert('✅ ¡Guardado Exitoso!\n\nLas fotos ya están seguras en el servidor.');
-      
-      // Forzar la recarga de las propiedades para ver los cambios
-      await fetchProperties();
-      
-      // Mantener la propiedad actual cargada pero con la data fresca
-      const { data: updatedProp } = await supabase.from('propiedades').select('*').eq('id', currentId).single();
-      if (updatedProp) {
-        setData(updatedProp.data);
-      }
+      await fetch(import.meta.env.VITE_GOOGLE_SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({
+          action: "save_data",
+          folderId: import.meta.env.VITE_GOOGLE_DRIVE_FOLDER_ID,
+          propiedad: data.propiedad,
+          content: cleanData
+        })
+      });
+
+      alert('✅ ¡Guardado Exitoso!\n\n1. Supabase: Sincronizado\n2. Google Drive: Estructura de carpetas lista.\n3. PDF: Generándose en la carpeta "general".');
+      fetchProperties();
     } catch (error) {
       alert('Error al guardar: ' + error.message);
     } finally {
@@ -789,12 +676,8 @@ export default function App() {
           <button className="btn-save-sidebar" onClick={handleSave} disabled={isSaving}>
             <FileText size={20} /> {isSaving ? 'GUARDANDO...' : 'GUARDAR CAMBIOS'}
           </button>
-
-          <button className="btn-save-sidebar" onClick={downloadPropertyZip} style={{ background: '#10b981', color: 'white', marginTop: '0.5rem' }} disabled={isSaving}>
-            <Zap size={20} /> {isSaving ? 'PROCESANDO...' : 'DESCARGAR FOTOS (ZIP)'}
-          </button>
           
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1.5rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
             <p style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '700', marginBottom: '0' }}>OPCIONES DE IMPRESIÓN:</p>
             <button className="btn-print-sidebar" onClick={() => { setPrintMode('PROPIETARIO'); setTimeout(() => window.print(), 100); }}>
               <UserIcon size={16} /> ACTA PROPIETARIO
@@ -842,10 +725,7 @@ export default function App() {
             <button className="btn-save" onClick={handleSave} disabled={isSaving} style={{ width: '100%' }}>
               <FileText size={20} /> {isSaving ? 'GUARDANDO...' : 'GUARDAR'}
             </button>
-            <button className="btn-save" onClick={downloadPropertyZip} disabled={isSaving} style={{ width: '100%', background: '#10b981', marginTop: '0.5rem' }}>
-              <Zap size={20} /> {isSaving ? 'PROCESANDO...' : 'DESCARGAR FOTOS (ZIP)'}
-            </button>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginTop: '0.5rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
               <button className="btn-primary" onClick={() => { setPrintMode('PROPIETARIO'); setTimeout(() => window.print(), 100); }} style={{ fontSize: '0.75rem' }}>
                 <Printer size={18} /> PROPIETARIO
               </button>
@@ -917,14 +797,7 @@ export default function App() {
                 <div className="form-group">
                   <div className={`image-upload-area ${data.imagenPropiedad ? 'has-image' : ''}`} style={{ minHeight: '200px', cursor: 'default' }}>
                     {data.imagenPropiedad ? (
-                      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                        <img src={data.imagenPropiedad} alt="Propiedad" />
-                        <div style={{ position: 'absolute', bottom: '10px', left: '10px', display: 'flex', gap: '5px' }}>
-                          <a href={data.imagenPropiedad} target="_blank" rel="noreferrer" className="btn-save" style={{ padding: '4px 8px', fontSize: '10px', background: 'rgba(0,0,0,0.6)' }}>
-                             Abrir Original
-                          </a>
-                        </div>
-                      </div>
+                      <img src={data.imagenPropiedad} alt="Propiedad" />
                     ) : (
                       <div style={{ display: 'flex', gap: '1rem' }}>
                         <button className="btn-outline" onClick={() => setCameraConfig({ onCapture: (url) => handleProcessImage(url, 'FACHADA', (pUrl) => handleDataChange('imagenPropiedad', pUrl)) })}>
