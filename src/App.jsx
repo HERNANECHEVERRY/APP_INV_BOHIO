@@ -248,10 +248,26 @@ export default function App() {
       const addFile = async (url, folderPath, fileName) => {
         if (!url || url === "SENT" || typeof url !== 'string' || !url.startsWith('http')) return;
         try {
-          const res = await fetch(url, { mode: 'cors' });
-          if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-          const blob = await res.blob();
-          root.folder(folderPath).file(fileName, blob);
+          let blob;
+          // Si la foto está en nuestro Supabase, la bajamos directamente usando nuestra sesión
+          if (url.includes('supabase.co/storage/v1/object/public/FOTOS_INVENTARIOS/')) {
+            const pathInBucket = decodeURIComponent(url.split('FOTOS_INVENTARIOS/')[1]);
+            const { data: downloadData, error } = await supabase.storage
+              .from('FOTOS_INVENTARIOS')
+              .download(pathInBucket);
+            
+            if (error) throw error;
+            blob = downloadData;
+          } else {
+            // Si es de otro sitio (ej: Drive), usamos fetch normal
+            const res = await fetch(url, { mode: 'cors' });
+            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+            blob = await res.blob();
+          }
+          
+          if (blob) {
+            root.folder(folderPath).file(fileName, blob);
+          }
         } catch (e) { 
           console.error(`Error bajando imagen ${fileName} desde ${url}:`, e); 
         }
