@@ -485,8 +485,16 @@ export default function App() {
         })
       });
 
-      alert('✅ ¡Guardado Exitoso!\n\n1. Supabase: Sincronizado\n2. Google Drive: Estructura de carpetas lista.\n3. PDF: Generándose en la carpeta "general".');
-      fetchProperties();
+      alert('✅ ¡Guardado Exitoso!\n\nLas fotos ya están seguras en el servidor.');
+      
+      // Forzar la recarga de las propiedades para ver los cambios
+      await fetchProperties();
+      
+      // Mantener la propiedad actual cargada pero con la data fresca
+      const { data: updatedProp } = await supabase.from('propiedades').select('*').eq('id', currentId).single();
+      if (updatedProp) {
+        setData(updatedProp.data);
+      }
     } catch (error) {
       alert('Error al guardar: ' + error.message);
     } finally {
