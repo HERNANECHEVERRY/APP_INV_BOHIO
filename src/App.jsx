@@ -409,6 +409,9 @@ export default function App() {
   const handleProcessImage = async (fileOrUrl, path, callback) => {
     try {
       const resultUrl = await uploadImage(fileOrUrl, path);
+      if (resultUrl && resultUrl.startsWith('http')) {
+        alert("¡Foto procesada con éxito!");
+      }
       callback(resultUrl);
     } catch (err) {
       console.error(err);
