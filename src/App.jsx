@@ -448,43 +448,24 @@ export default function App() {
 
       console.log("📂 Sincronizando con Google Drive...");
 
-      // Sanitización para evitar guardar Base64 en la base de datos de Supabase
-      const sanitizeData = (obj) => {
-        const copy = JSON.parse(JSON.stringify(obj));
-        const clean = (val) => (typeof val === 'string' && val.startsWith('data:image')) ? "SENT" : val;
+      // Actualizar el registro en Supabase con la data (incluyendo las URLs de Storage)
+      const { error: finalUpdateError } = await supabase.from('propiedades').update({ data: data }).eq('id', currentId);
+      if (finalUpdateError) throw finalUpdateError;
 
-        if (copy.imagenPropiedad) copy.imagenPropiedad = clean(copy.imagenPropiedad);
-        if (copy.contadores) {
-          Object.keys(copy.contadores).forEach(k => {
-            copy.contadores[k].imagenes = copy.contadores[k].imagenes.map(img => clean(img));
-          });
-        }
-        if (copy.espacios) {
-          copy.espacios.forEach(sp => {
-            sp.elementos.forEach(el => {
-              el.imagenes = el.imagenes.map(img => clean(img));
-            });
-          });
-        }
-        return copy;
-      };
-
-      const cleanData = sanitizeData(data);
-
-      // Actualizar el registro en Supabase con la data limpia (sin base64)
-      await supabase.from('propiedades').update({ data: cleanData }).eq('id', currentId);
-
-      await fetch(import.meta.env.VITE_GOOGLE_SCRIPT_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({
-          action: "save_data",
-          folderId: import.meta.env.VITE_GOOGLE_DRIVE_FOLDER_ID,
-          propiedad: data.propiedad,
-          content: cleanData
-        })
-      });
+      // Sincronización con Google Drive
+      try {
+        await fetch(import.meta.env.VITE_GOOGLE_SCRIPT_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "text/plain" },
+          body: JSON.stringify({
+            action: "save_data",
+            folderId: import.meta.env.VITE_GOOGLE_DRIVE_FOLDER_ID,
+            propiedad: data.propiedad,
+            content: data // Enviamos la data completa
+          })
+        });
+      } catch (e) { console.warn("Sincronización Drive diferida:", e); }
 
       alert('✅ ¡Guardado Exitoso!\n\nLas fotos ya están seguras en el servidor.');
       
