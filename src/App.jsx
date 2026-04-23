@@ -374,10 +374,16 @@ export default function App() {
 
     // 2. Subida a Supabase Storage (Principal)
     try {
-      const res = await fetch(compressedBase64);
-      const blob = await res.blob();
+      // Conversión manual de base64 a Blob (más segura que fetch)
+      const byteString = atob(compressedBase64.split(',')[1]);
+      const mimeString = compressedBase64.split(',')[0].split(':')[1].split(';')[0];
+      const ab = new ArrayBuffer(byteString.length);
+      const ia = new Uint8Array(ab);
+      for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+      }
+      const blob = new Blob([ab], { type: mimeString });
       
-      // Ruta ultra-simplificada: solo letras y números
       const cleanName = propNameClean.replace(/[^a-z0-9]/gi, '_').toLowerCase();
       const cleanPath = path.replace(/[^a-z0-9]/gi, '_').toLowerCase();
       const filePath = `${cleanName}/${cleanPath}/${fileName}`;
@@ -392,11 +398,11 @@ export default function App() {
         .from('FOTOS_INVENTARIOS')
         .getPublicUrl(filePath);
 
-      // Añadimos un timestamp para evitar que el navegador use una versión vieja (caché)
-      return `${publicUrl}?t=${Date.now()}`;
+      const finalUrl = `${publicUrl}?t=${Date.now()}`;
+      return finalUrl;
     } catch (err) {
-      console.error("Error crítico en Supabase Storage:", err);
-      throw new Error("Error de Storage: " + err.message);
+      alert("Fallo en Storage: " + err.message);
+      throw err;
     }
   };
 
