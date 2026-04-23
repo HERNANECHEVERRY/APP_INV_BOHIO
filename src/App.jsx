@@ -376,11 +376,14 @@ export default function App() {
     try {
       const res = await fetch(compressedBase64);
       const blob = await res.blob();
-      const filePath = `${propNameClean}/${path}/${fileName}`;
+      // Limpieza profunda del nombre para evitar errores de red
+      const safePropName = propNameClean.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '_');
+      const safePath = path.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '_');
+      const filePath = `${safePropName}/${safePath}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('FOTOS_INVENTARIOS')
-        .upload(filePath, blob);
+        .upload(filePath, blob, { upsert: true });
 
       if (uploadError) throw uploadError;
 
@@ -388,10 +391,11 @@ export default function App() {
         .from('FOTOS_INVENTARIOS')
         .getPublicUrl(filePath);
 
-      return publicUrl; // Retornamos la URL pública para guardarla en la DB
+      return publicUrl;
     } catch (err) {
-      console.error("Error Storage:", err);
-      return compressedBase64; // Fallback a base64 si falla el storage
+      console.error("Error crítico en Supabase Storage:", err);
+      // Lanzamos el error para que handleProcessImage lo capture y muestre el alert
+      throw new Error("No se pudo subir la foto a Supabase. Revisa los permisos de Storage. Detalle: " + err.message);
     }
   };
 
